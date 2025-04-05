@@ -16,6 +16,8 @@ import edu.wpi.first.math.geometry.Translation3d;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,12 +39,18 @@ import java.util.Optional;
  * at the bottom-right corner of the blue alliance wall. {@link #setOrigin(OriginPosition)} can be
  * used to change the poses returned from {@link AprilTagFieldLayout#getTagPose(int)} to be from the
  * perspective of a specific alliance.
+ *
+ * <p>Tag poses represent the center of the tag, with a zero rotation representing a tag that is
+ * upright and facing away from the (blue) alliance wall (that is, towards the opposing alliance).
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonAutoDetect(getterVisibility = JsonAutoDetect.Visibility.NONE)
 public class AprilTagFieldLayout {
+  /** Common origin positions for the AprilTag coordinate system. */
   public enum OriginPosition {
+    /** Blue alliance wall, right side. */
     kBlueAllianceWallRightSide,
+    /** Red alliance wall, right side. */
     kRedAllianceWallRightSide,
   }
 
@@ -111,6 +119,26 @@ public class AprilTagFieldLayout {
   }
 
   /**
+   * Returns the length of the field the layout is representing in meters.
+   *
+   * @return length, in meters
+   */
+  @JsonIgnore
+  public double getFieldLength() {
+    return m_fieldDimensions.fieldLength;
+  }
+
+  /**
+   * Returns the length of the field the layout is representing in meters.
+   *
+   * @return width, in meters
+   */
+  @JsonIgnore
+  public double getFieldWidth() {
+    return m_fieldDimensions.fieldWidth;
+  }
+
+  /**
    * Sets the origin based on a predefined enumeration of coordinate frame origins. The origins are
    * calculated from the field dimensions.
    *
@@ -120,20 +148,15 @@ public class AprilTagFieldLayout {
    * @param origin The predefined origin
    */
   @JsonIgnore
-  public void setOrigin(OriginPosition origin) {
-    switch (origin) {
-      case kBlueAllianceWallRightSide:
-        setOrigin(new Pose3d());
-        break;
-      case kRedAllianceWallRightSide:
-        setOrigin(
-            new Pose3d(
-                new Translation3d(m_fieldDimensions.fieldLength, m_fieldDimensions.fieldWidth, 0),
-                new Rotation3d(0, 0, Math.PI)));
-        break;
-      default:
-        throw new IllegalArgumentException("Unsupported enum value");
-    }
+  public final void setOrigin(OriginPosition origin) {
+    var pose =
+        switch (origin) {
+          case kBlueAllianceWallRightSide -> Pose3d.kZero;
+          case kRedAllianceWallRightSide -> new Pose3d(
+              new Translation3d(m_fieldDimensions.fieldLength, m_fieldDimensions.fieldWidth, 0),
+              new Rotation3d(0, 0, Math.PI));
+        };
+    setOrigin(pose);
   }
 
   /**
@@ -145,8 +168,18 @@ public class AprilTagFieldLayout {
    * @param origin The new origin for tag transformations
    */
   @JsonIgnore
-  public void setOrigin(Pose3d origin) {
+  public final void setOrigin(Pose3d origin) {
     m_origin = origin;
+  }
+
+  /**
+   * Returns the origin used for tag pose transformation.
+   *
+   * @return the origin
+   */
+  @JsonIgnore
+  public Pose3d getOrigin() {
+    return m_origin;
   }
 
   /**
@@ -186,26 +219,57 @@ public class AprilTagFieldLayout {
   }
 
   /**
-   * Deserializes a field layout from a resource within a jar file.
+   * Get an official {@link AprilTagFieldLayout}.
+   *
+   * @param field The loadable AprilTag field layout.
+   * @return AprilTagFieldLayout of the field.
+   * @throws UncheckedIOException If the layout does not exist.
+   */
+  public static AprilTagFieldLayout loadField(AprilTagFields field) {
+    if (field.m_fieldLayout == null) {
+      try {
+        field.m_fieldLayout = loadFromResource(field.m_resourceFile);
+      } catch (IOException e) {
+        throw new UncheckedIOException(
+            "Could not load AprilTagFieldLayout from " + field.m_resourceFile, e);
+      }
+    }
+    // Copy layout because the layout's origin is mutable
+    return new AprilTagFieldLayout(
+        field.m_fieldLayout.getTags(),
+        field.m_fieldLayout.getFieldLength(),
+        field.m_fieldLayout.getFieldWidth());
+  }
+
+  /**
+   * Deserializes a field layout from a resource within a internal jar file.
+   *
+   * <p>Users should use {@link AprilTagFields#loadAprilTagLayoutField()} to load official layouts
+   * and {@link #AprilTagFieldLayout(String)} for custom layouts.
    *
    * @param resourcePath The absolute path of the resource
    * @return The deserialized layout
    * @throws IOException If the resource could not be loaded
    */
   public static AprilTagFieldLayout loadFromResource(String resourcePath) throws IOException {
-    try (InputStream stream = AprilTagFieldLayout.class.getResourceAsStream(resourcePath);
-        InputStreamReader reader = new InputStreamReader(stream)) {
+    InputStream stream = AprilTagFieldLayout.class.getResourceAsStream(resourcePath);
+    if (stream == null) {
+      // Class.getResourceAsStream() returns null if the resource does not exist.
+      throw new IOException("Could not locate resource: " + resourcePath);
+    }
+    InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8);
+    try {
       return new ObjectMapper().readerFor(AprilTagFieldLayout.class).readValue(reader);
+    } catch (IOException e) {
+      throw new IOException("Failed to load AprilTagFieldLayout: " + resourcePath);
     }
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof AprilTagFieldLayout) {
-      var other = (AprilTagFieldLayout) obj;
-      return m_apriltags.equals(other.m_apriltags) && m_origin.equals(other.m_origin);
-    }
-    return false;
+    return obj instanceof AprilTagFieldLayout layout
+        && m_apriltags.equals(layout.m_apriltags)
+        && m_origin.equals(layout.m_origin);
   }
 
   @Override
@@ -218,11 +282,11 @@ public class AprilTagFieldLayout {
   private static class FieldDimensions {
     @SuppressWarnings("MemberName")
     @JsonProperty(value = "length")
-    public double fieldLength;
+    public final double fieldLength;
 
     @SuppressWarnings("MemberName")
     @JsonProperty(value = "width")
-    public double fieldWidth;
+    public final double fieldWidth;
 
     @JsonCreator()
     FieldDimensions(

@@ -2,6 +2,9 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
+#include <memory>
+
+#include "glass/networktables/NTAlerts.h"
 #include "glass/networktables/NTCommandScheduler.h"
 #include "glass/networktables/NTCommandSelector.h"
 #include "glass/networktables/NTDifferentialDrive.h"
@@ -14,6 +17,7 @@
 #include "glass/networktables/NTMechanism2D.h"
 #include "glass/networktables/NTMotorController.h"
 #include "glass/networktables/NTPIDController.h"
+#include "glass/networktables/NTProfiledPIDController.h"
 #include "glass/networktables/NTStringChooser.h"
 #include "glass/networktables/NTSubsystem.h"
 #include "glass/networktables/NetworkTablesProvider.h"
@@ -21,6 +25,16 @@
 using namespace glass;
 
 void glass::AddStandardNetworkTablesViews(NetworkTablesProvider& provider) {
+  provider.Register(
+      NTAlertsModel::kType,
+      [](nt::NetworkTableInstance inst, const char* path) {
+        return std::make_unique<NTAlertsModel>(inst, path);
+      },
+      [](Window* win, Model* model, const char*) {
+        win->SetDefaultSize(300, 150);
+        return MakeFunctionView(
+            [=] { DisplayAlerts(static_cast<NTAlertsModel*>(model)); });
+      });
   provider.Register(
       NTCommandSchedulerModel::kType,
       [](nt::NetworkTableInstance inst, const char* path) {
@@ -62,7 +76,7 @@ void glass::AddStandardNetworkTablesViews(NetworkTablesProvider& provider) {
       [](Window* win, Model* model, const char*) {
         win->SetFlags(ImGuiWindowFlags_AlwaysAutoResize);
         return MakeFunctionView(
-            [=] { DisplayFMS(static_cast<FMSModel*>(model)); });
+            [=] { DisplayFMS(static_cast<FMSModel*>(model), true); });
       });
   provider.Register(
       NTDigitalInputModel::kType,
@@ -139,6 +153,18 @@ void glass::AddStandardNetworkTablesViews(NetworkTablesProvider& provider) {
         win->SetFlags(ImGuiWindowFlags_AlwaysAutoResize);
         return MakeFunctionView([=] {
           DisplayPIDController(static_cast<NTPIDControllerModel*>(model));
+        });
+      });
+  provider.Register(
+      NTProfiledPIDControllerModel::kType,
+      [](nt::NetworkTableInstance inst, const char* path) {
+        return std::make_unique<NTProfiledPIDControllerModel>(inst, path);
+      },
+      [](Window* win, Model* model, const char* path) {
+        win->SetFlags(ImGuiWindowFlags_AlwaysAutoResize);
+        return MakeFunctionView([=] {
+          DisplayProfiledPIDController(
+              static_cast<NTProfiledPIDControllerModel*>(model));
         });
       });
   provider.Register(

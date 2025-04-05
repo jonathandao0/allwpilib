@@ -2,11 +2,9 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
-#include <cmath>
 #include <functional>
-#include <initializer_list>
 #include <memory>
-#include <span>
+#include <utility>
 
 #include <frc/Timer.h>
 #include <frc/controller/HolonomicDriveController.h>
@@ -21,8 +19,9 @@
 #include <units/time.h>
 #include <units/voltage.h>
 
-#include "CommandBase.h"
-#include "CommandHelper.h"
+#include "frc2/command/Command.h"
+#include "frc2/command/CommandHelper.h"
+#include "frc2/command/Requirements.h"
 
 #pragma once
 
@@ -51,7 +50,7 @@ namespace frc2 {
  */
 template <size_t NumModules>
 class SwerveControllerCommand
-    : public CommandHelper<CommandBase, SwerveControllerCommand<NumModules>> {
+    : public CommandHelper<Command, SwerveControllerCommand<NumModules>> {
   using voltsecondspermeter =
       units::compound_unit<units::voltage::volt, units::second,
                            units::inverse<units::meter>>;
@@ -89,12 +88,20 @@ class SwerveControllerCommand
   SwerveControllerCommand(
       frc::Trajectory trajectory, std::function<frc::Pose2d()> pose,
       frc::SwerveDriveKinematics<NumModules> kinematics,
-      frc2::PIDController xController, frc2::PIDController yController,
+      frc::PIDController xController, frc::PIDController yController,
       frc::ProfiledPIDController<units::radians> thetaController,
       std::function<frc::Rotation2d()> desiredRotation,
       std::function<void(std::array<frc::SwerveModuleState, NumModules>)>
           output,
-      std::initializer_list<Subsystem*> requirements);
+      Requirements requirements = {})
+      : m_trajectory(std::move(trajectory)),
+        m_pose(std::move(pose)),
+        m_kinematics(kinematics),
+        m_controller(xController, yController, thetaController),
+        m_desiredRotation(std::move(desiredRotation)),
+        m_outputStates(output) {
+    this->AddRequirements(requirements);
+  }
 
   /**
    * Constructs a new SwerveControllerCommand that when executed will follow the
@@ -128,86 +135,18 @@ class SwerveControllerCommand
   SwerveControllerCommand(
       frc::Trajectory trajectory, std::function<frc::Pose2d()> pose,
       frc::SwerveDriveKinematics<NumModules> kinematics,
-      frc2::PIDController xController, frc2::PIDController yController,
+      frc::PIDController xController, frc::PIDController yController,
       frc::ProfiledPIDController<units::radians> thetaController,
       std::function<void(std::array<frc::SwerveModuleState, NumModules>)>
           output,
-      std::initializer_list<Subsystem*> requirements);
-
-  /**
-   * Constructs a new SwerveControllerCommand that when executed will follow the
-   * provided trajectory. This command will not return output voltages but
-   * rather raw module states from the position controllers which need to be put
-   * into a velocity PID.
-   *
-   * <p>Note: The controllers will *not* set the outputVolts to zero upon
-   * completion of the path- this is left to the user, since it is not
-   * appropriate for paths with nonstationary endstates.
-   *
-   *
-   * @param trajectory      The trajectory to follow.
-   * @param pose            A function that supplies the robot pose,
-   *                        provided by the odometry class.
-   * @param kinematics      The kinematics for the robot drivetrain.
-   * @param xController     The Trajectory Tracker PID controller
-   *                        for the robot's x position.
-   * @param yController     The Trajectory Tracker PID controller
-   *                        for the robot's y position.
-   * @param thetaController The Trajectory Tracker PID controller
-   *                        for angle for the robot.
-   * @param desiredRotation The angle that the drivetrain should be
-   *                        facing. This is sampled at each time step.
-   * @param output          The raw output module states from the
-   *                        position controllers.
-   * @param requirements    The subsystems to require.
-   */
-  SwerveControllerCommand(
-      frc::Trajectory trajectory, std::function<frc::Pose2d()> pose,
-      frc::SwerveDriveKinematics<NumModules> kinematics,
-      frc2::PIDController xController, frc2::PIDController yController,
-      frc::ProfiledPIDController<units::radians> thetaController,
-      std::function<frc::Rotation2d()> desiredRotation,
-      std::function<void(std::array<frc::SwerveModuleState, NumModules>)>
-          output,
-      std::span<Subsystem* const> requirements = {});
-
-  /**
-   * Constructs a new SwerveControllerCommand that when executed will follow the
-   * provided trajectory. This command will not return output voltages but
-   * rather raw module states from the position controllers which need to be put
-   * into a velocity PID.
-   *
-   * <p>Note: The controllers will *not* set the outputVolts to zero upon
-   * completion of the path- this is left to the user, since it is not
-   * appropriate for paths with nonstationary endstates.
-   *
-   * <p>Note 2: The final rotation of the robot will be set to the rotation of
-   * the final pose in the trajectory. The robot will not follow the rotations
-   * from the poses at each timestep. If alternate rotation behavior is desired,
-   * the other constructor with a supplier for rotation should be used.
-   *
-   * @param trajectory      The trajectory to follow.
-   * @param pose            A function that supplies the robot pose,
-   *                        provided by the odometry class.
-   * @param kinematics      The kinematics for the robot drivetrain.
-   * @param xController     The Trajectory Tracker PID controller
-   *                        for the robot's x position.
-   * @param yController     The Trajectory Tracker PID controller
-   *                        for the robot's y position.
-   * @param thetaController The Trajectory Tracker PID controller
-   *                        for angle for the robot.
-   * @param output          The raw output module states from the
-   *                        position controllers.
-   * @param requirements    The subsystems to require.
-   */
-  SwerveControllerCommand(
-      frc::Trajectory trajectory, std::function<frc::Pose2d()> pose,
-      frc::SwerveDriveKinematics<NumModules> kinematics,
-      frc2::PIDController xController, frc2::PIDController yController,
-      frc::ProfiledPIDController<units::radians> thetaController,
-      std::function<void(std::array<frc::SwerveModuleState, NumModules>)>
-          output,
-      std::span<Subsystem* const> requirements = {});
+      Requirements requirements = {})
+      : m_trajectory(std::move(trajectory)),
+        m_pose(std::move(pose)),
+        m_kinematics(kinematics),
+        m_controller(xController, yController, thetaController),
+        m_outputStates(output) {
+    this->AddRequirements(requirements);
+  }
 
   /**
    * Constructs a new SwerveControllerCommand that when executed will follow the
@@ -237,7 +176,15 @@ class SwerveControllerCommand
       std::function<frc::Rotation2d()> desiredRotation,
       std::function<void(std::array<frc::SwerveModuleState, NumModules>)>
           output,
-      std::initializer_list<Subsystem*> requirements);
+      Requirements requirements = {})
+      : m_trajectory(std::move(trajectory)),
+        m_pose(std::move(pose)),
+        m_kinematics(kinematics),
+        m_controller(std::move(controller)),
+        m_desiredRotation(std::move(desiredRotation)),
+        m_outputStates(output) {
+    this->AddRequirements(requirements);
+  }
 
   /**
    * Constructs a new SwerveControllerCommand that when executed will follow the
@@ -269,78 +216,41 @@ class SwerveControllerCommand
       frc::HolonomicDriveController controller,
       std::function<void(std::array<frc::SwerveModuleState, NumModules>)>
           output,
-      std::initializer_list<Subsystem*> requirements);
+      Requirements requirements = {})
+      : m_trajectory(std::move(trajectory)),
+        m_pose(std::move(pose)),
+        m_kinematics(kinematics),
+        m_controller(std::move(controller)),
+        m_outputStates(output) {
+    this->AddRequirements(requirements);
+  }
 
-  /**
-   * Constructs a new SwerveControllerCommand that when executed will follow the
-   * provided trajectory. This command will not return output voltages but
-   * rather raw module states from the position controllers which need to be put
-   * into a velocity PID.
-   *
-   * <p>Note: The controllers will *not* set the outputVolts to zero upon
-   * completion of the path- this is left to the user, since it is not
-   * appropriate for paths with nonstationary endstates.
-   *
-   *
-   * @param trajectory      The trajectory to follow.
-   * @param pose            A function that supplies the robot pose,
-   *                        provided by the odometry class.
-   * @param kinematics      The kinematics for the robot drivetrain.
-   * @param controller     The HolonomicDriveController for the robot.
-   * @param desiredRotation The angle that the drivetrain should be
-   *                        facing. This is sampled at each time step.
-   * @param output          The raw output module states from the
-   *                        position controllers.
-   * @param requirements    The subsystems to require.
-   */
-  SwerveControllerCommand(
-      frc::Trajectory trajectory, std::function<frc::Pose2d()> pose,
-      frc::SwerveDriveKinematics<NumModules> kinematics,
-      frc::HolonomicDriveController controller,
-      std::function<frc::Rotation2d()> desiredRotation,
-      std::function<void(std::array<frc::SwerveModuleState, NumModules>)>
-          output,
-      std::span<Subsystem* const> requirements = {});
+  void Initialize() override {
+    if (m_desiredRotation == nullptr) {
+      m_desiredRotation = [&] {
+        return m_trajectory.States().back().pose.Rotation();
+      };
+    }
+    m_timer.Restart();
+  }
 
-  /**
-   * Constructs a new SwerveControllerCommand that when executed will follow the
-   * provided trajectory. This command will not return output voltages but
-   * rather raw module states from the position controllers which need to be put
-   * into a velocity PID.
-   *
-   * <p>Note: The controllers will *not* set the outputVolts to zero upon
-   * completion of the path- this is left to the user, since it is not
-   * appropriate for paths with nonstationary endstates.
-   *
-   * <p>Note 2: The final rotation of the robot will be set to the rotation of
-   * the final pose in the trajectory. The robot will not follow the rotations
-   * from the poses at each timestep. If alternate rotation behavior is desired,
-   * the other constructor with a supplier for rotation should be used.
-   *
-   * @param trajectory      The trajectory to follow.
-   * @param pose            A function that supplies the robot pose,
-   *                        provided by the odometry class.
-   * @param kinematics      The kinematics for the robot drivetrain.
-   * @param controller      The HolonomicDriveController for the drivetrain.
-   * @param output          The raw output module states from the
-   *                        position controllers.
-   * @param requirements    The subsystems to require.
-   */
-  SwerveControllerCommand(
-      frc::Trajectory trajectory, std::function<frc::Pose2d()> pose,
-      frc::SwerveDriveKinematics<NumModules> kinematics,
-      frc::HolonomicDriveController controller,
-      std::function<void(std::array<frc::SwerveModuleState, NumModules>)>
-          output,
-      std::span<Subsystem* const> requirements = {});
+  void Execute() override {
+    auto curTime = m_timer.Get();
+    auto m_desiredState = m_trajectory.Sample(curTime);
 
-  void Initialize() override;
+    auto targetChassisSpeeds =
+        m_controller.Calculate(m_pose(), m_desiredState, m_desiredRotation());
+    auto targetModuleStates =
+        m_kinematics.ToSwerveModuleStates(targetChassisSpeeds);
 
-  void Execute() override;
+    m_outputStates(targetModuleStates);
+  }
 
-  void End(bool interrupted) override;
+  void End(bool interrupted) override { m_timer.Stop(); }
 
-  bool IsFinished() override;
+  bool IsFinished() override {
+    return m_timer.HasElapsed(m_trajectory.TotalTime());
+  }
 
  private:
   frc::Trajectory m_trajectory;
@@ -356,6 +266,5 @@ class SwerveControllerCommand
   units::second_t m_prevTime;
   frc::Rotation2d m_finalRotation;
 };
-}  // namespace frc2
 
-#include "SwerveControllerCommand.inc"
+}  // namespace frc2

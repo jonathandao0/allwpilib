@@ -4,6 +4,7 @@
 
 package edu.wpi.first.math.controller;
 
+import edu.wpi.first.math.DARE;
 import edu.wpi.first.math.InterpolatingMatrixTreeMap;
 import edu.wpi.first.math.MatBuilder;
 import edu.wpi.first.math.Matrix;
@@ -15,12 +16,16 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.system.Discretization;
 import edu.wpi.first.math.trajectory.Trajectory;
 
 /**
  * The linear time-varying unicycle controller has a similar form to the LQR, but the model used to
- * compute the controller gain is the nonlinear model linearized around the drivetrain's current
- * state.
+ * compute the controller gain is the nonlinear unicycle model linearized around the drivetrain's
+ * current state.
+ *
+ * <p>This controller is a roughly drop-in replacement for {@link RamseteController} with more
+ * optimal feedback gains in the "least-squares error" sense.
  *
  * <p>See section 8.9 in Controls Engineering in FRC for a derivation of the control law we used
  * shown in theorem 8.9.1.
@@ -49,8 +54,9 @@ public class LTVUnicycleController {
 
   /**
    * Constructs a linear time-varying unicycle controller with default maximum desired error
-   * tolerances of (0.0625 m, 0.125 m, 2 rad) and default maximum desired control effort of (1 m/s,
-   * 2 rad/s).
+   * tolerances of (x = 0.0625 m, y = 0.125 m, heading = 2 rad), default maximum desired control
+   * effort of (linear velocity = 1 m/s, angular velocity = 2 rad/s), and default maximum Velocity
+   * of 9 m/s.
    *
    * @param dt Discretization timestep in seconds.
    */
@@ -60,12 +66,13 @@ public class LTVUnicycleController {
 
   /**
    * Constructs a linear time-varying unicycle controller with default maximum desired error
-   * tolerances of (0.0625 m, 0.125 m, 2 rad) and default maximum desired control effort of (1 m/s,
-   * 2 rad/s).
+   * tolerances of (x = 0.0625 m, y = 0.125 m, heading = 2 rad), default maximum desired control
+   * effort of (1 m/s, 2 rad/s).
    *
    * @param dt Discretization timestep in seconds.
    * @param maxVelocity The maximum velocity in meters per second for the controller gain lookup
    *     table. The default is 9 m/s.
+   * @throws IllegalArgumentException if maxVelocity &lt;= 0 m/s or &gt;= 15 m/s.
    */
   public LTVUnicycleController(double dt, double maxVelocity) {
     this(VecBuilder.fill(0.0625, 0.125, 2.0), VecBuilder.fill(1.0, 2.0), dt, maxVelocity);
@@ -74,8 +81,15 @@ public class LTVUnicycleController {
   /**
    * Constructs a linear time-varying unicycle controller.
    *
-   * @param qelems The maximum desired error tolerance for each state.
-   * @param relems The maximum desired control effort for each input.
+   * <p>See <a
+   * href="https://docs.wpilib.org/en/stable/docs/software/advanced-controls/state-space/state-space-intro.html#lqr-tuning">https://docs.wpilib.org/en/stable/docs/software/advanced-controls/state-space/state-space-intro.html#lqr-tuning</a>
+   * for how to select the tolerances.
+   *
+   * <p>The default maximum Velocity is 9 m/s.
+   *
+   * @param qelems The maximum desired error tolerance for each state (x, y, heading).
+   * @param relems The maximum desired control effort for each input (linear velocity, angular
+   *     velocity).
    * @param dt Discretization timestep in seconds.
    */
   public LTVUnicycleController(Vector<N3> qelems, Vector<N2> relems, double dt) {
@@ -85,14 +99,27 @@ public class LTVUnicycleController {
   /**
    * Constructs a linear time-varying unicycle controller.
    *
-   * @param qelems The maximum desired error tolerance for each state.
-   * @param relems The maximum desired control effort for each input.
+   * <p>See <a
+   * href="https://docs.wpilib.org/en/stable/docs/software/advanced-controls/state-space/state-space-intro.html#lqr-tuning">https://docs.wpilib.org/en/stable/docs/software/advanced-controls/state-space/state-space-intro.html#lqr-tuning</a>
+   * for how to select the tolerances.
+   *
+   * @param qelems The maximum desired error tolerance for each state (x, y, heading).
+   * @param relems The maximum desired control effort for each input (linear velocity, angular
+   *     velocity).
    * @param dt Discretization timestep in seconds.
    * @param maxVelocity The maximum velocity in meters per second for the controller gain lookup
    *     table. The default is 9 m/s.
+   * @throws IllegalArgumentException if maxVelocity &lt;= 0 m/s or &gt;= 15 m/s.
    */
   public LTVUnicycleController(
       Vector<N3> qelems, Vector<N2> relems, double dt, double maxVelocity) {
+    if (maxVelocity <= 0.0) {
+      throw new IllegalArgumentException("Max velocity must be greater than 0 m/s.");
+    }
+    if (maxVelocity >= 15.0) {
+      throw new IllegalArgumentException("Max velocity must be less than 15 m/s.");
+    }
+
     // The change in global pose for a unicycle is defined by the following
     // three equations.
     //
@@ -127,7 +154,7 @@ public class LTVUnicycleController {
     // A = [0  0  v]          B = [0  0]
     //     [0  0  0]              [0  1]
     var A = new Matrix<>(Nat.N3(), Nat.N3());
-    var B = new MatBuilder<>(Nat.N3(), Nat.N2()).fill(1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    var B = MatBuilder.fill(Nat.N3(), Nat.N2(), 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     var Q = StateSpaceUtil.makeCostMatrix(qelems);
     var R = StateSpaceUtil.makeCostMatrix(relems);
 
@@ -135,11 +162,26 @@ public class LTVUnicycleController {
       // The DARE is ill-conditioned if the velocity is close to zero, so don't
       // let the system stop.
       if (Math.abs(velocity) < 1e-4) {
-        m_table.put(velocity, new Matrix<>(Nat.N2(), Nat.N3()));
+        A.set(State.kY.value, State.kHeading.value, 1e-4);
       } else {
         A.set(State.kY.value, State.kHeading.value, velocity);
-        m_table.put(velocity, new LinearQuadraticRegulator<N3, N2, N3>(A, B, Q, R, dt).getK());
       }
+
+      var discABPair = Discretization.discretizeAB(A, B, dt);
+      var discA = discABPair.getFirst();
+      var discB = discABPair.getSecond();
+
+      var S = DARE.dareNoPrecond(discA, discB, Q, R);
+
+      // K = (BᵀSB + R)⁻¹BᵀSA
+      m_table.put(
+          velocity,
+          discB
+              .transpose()
+              .times(S)
+              .times(discB)
+              .plus(R)
+              .solve(discB.transpose().times(S).times(discA)));
     }
   }
 
@@ -189,8 +231,12 @@ public class LTVUnicycleController {
 
     var K = m_table.get(linearVelocityRef);
     var e =
-        new MatBuilder<>(Nat.N3(), Nat.N1())
-            .fill(m_poseError.getX(), m_poseError.getY(), m_poseError.getRotation().getRadians());
+        MatBuilder.fill(
+            Nat.N3(),
+            Nat.N1(),
+            m_poseError.getX(),
+            m_poseError.getY(),
+            m_poseError.getRotation().getRadians());
     var u = K.times(e);
 
     return new ChassisSpeeds(

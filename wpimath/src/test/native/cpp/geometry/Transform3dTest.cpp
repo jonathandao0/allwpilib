@@ -4,13 +4,21 @@
 
 #include <cmath>
 
+#include <gtest/gtest.h>
+
 #include "frc/geometry/Pose3d.h"
 #include "frc/geometry/Rotation3d.h"
 #include "frc/geometry/Transform3d.h"
 #include "frc/geometry/Translation3d.h"
-#include "gtest/gtest.h"
 
 using namespace frc;
+
+TEST(Transform3dTest, ToMatrix) {
+  Transform3d before{1_m, 2_m, 3_m, Rotation3d{10_deg, 20_deg, 30_deg}};
+  Transform3d after{before.ToMatrix()};
+
+  EXPECT_EQ(before, after);
+}
 
 TEST(Transform3dTest, Inverse) {
   Eigen::Vector3d zAxis{0.0, 0.0, 1.0};

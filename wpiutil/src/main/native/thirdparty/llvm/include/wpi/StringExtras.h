@@ -17,12 +17,15 @@
 
 #pragma once
 
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
+
+#include <fmt/format.h>
 
 namespace wpi {
 
@@ -355,6 +358,32 @@ inline bool contains_lower(std::string_view str, const char* other) noexcept {
 }
 
 /**
+ * Return an optional containing @p str but with @p prefix removed if the string
+ * starts with the prefix. If the string does not start with the prefix, return
+ * an empty optional.
+ */
+constexpr std::optional<std::string_view> remove_prefix(std::string_view str, std::string_view prefix) noexcept {
+  if (str.starts_with(prefix)) {
+    str.remove_prefix(prefix.size());
+    return str;
+  }
+  return std::nullopt;
+}
+
+/**
+ * Return an optional containing @p str but with @p suffix removed if the
+ * string ends with the suffix. If the string does not end with the suffix,
+ * return an empty optional.
+ */
+constexpr std::optional<std::string_view> remove_suffix(std::string_view str, std::string_view suffix) noexcept {
+  if (str.ends_with(suffix)) {
+    str.remove_suffix(suffix.size());
+    return str;
+  }
+  return std::nullopt;
+}
+
+/**
  * Return a string_view equal to @p str but with the first @p n elements
  * dropped.
  */
@@ -651,7 +680,7 @@ inline std::optional<T> parse_integer(std::string_view str,
       static_cast<Int>(static_cast<T>(val)) != val) {
     return std::nullopt;
   }
-  return val;
+  return static_cast<T>(val);
 }
 
 /**
@@ -720,5 +749,24 @@ std::optional<long double> parse_float<long double>(
  */
 std::pair<std::string_view, std::string_view> UnescapeCString(
     std::string_view str, SmallVectorImpl<char>& buf);
+
+/**
+ * Like std::format_to_n() in that it writes at most n bytes to the output
+ * buffer, but also includes a terminating null byte in n.
+ *
+ * This is essentially a more performant replacement for std::snprintf().
+ *
+ * @param out The output buffer.
+ * @param n The size of the output buffer.
+ * @param fmt The format string.
+ * @param args The format string arguments.
+ */
+template <class OutputIt, class... Args>
+inline void format_to_n_c_str(OutputIt out, std::iter_difference_t<OutputIt> n,
+                              fmt::format_string<Args...> fmt, Args&&... args) {
+  const auto result =
+      fmt::format_to_n(out, n - 1, fmt, std::forward<Args>(args)...);
+  *result.out = '\0';
+}
 
 }  // namespace wpi

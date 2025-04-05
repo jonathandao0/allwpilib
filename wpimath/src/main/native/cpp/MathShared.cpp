@@ -4,7 +4,13 @@
 
 #include "wpimath/MathShared.h"
 
+#include <memory>
+#include <utility>
+
 #include <wpi/mutex.h>
+#include <wpi/timestamp.h>
+
+#include "units/time.h"
 
 using namespace wpi::math;
 
@@ -15,6 +21,9 @@ class DefaultMathShared : public MathShared {
   void ReportWarningV(fmt::string_view format, fmt::format_args args) override {
   }
   void ReportUsage(MathUsageId id, int count) override {}
+  units::second_t GetTimestamp() override {
+    return units::second_t{wpi::Now() * 1.0e-6};
+  }
 };
 }  // namespace
 

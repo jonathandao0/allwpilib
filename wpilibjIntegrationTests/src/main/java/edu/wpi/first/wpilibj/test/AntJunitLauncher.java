@@ -24,9 +24,8 @@ public class AntJunitLauncher {
    */
   public static void main(String... args) {
     if (args.length == 0) {
-      String path =
+      String pathToReports =
           String.format("%s/%s", System.getProperty("user.dir"), "/testResults/AntReports");
-      String pathToReports = path;
       Project project = new Project();
 
       try {
@@ -60,9 +59,9 @@ public class AntJunitLauncher {
         FormatterElement.TypeAttribute type = new FormatterElement.TypeAttribute();
         type.setValue("xml");
 
-        FormatterElement formater = new FormatterElement();
-        formater.setType(type);
-        task.addFormatter(formater);
+        FormatterElement formatter = new FormatterElement();
+        formatter.setType(type);
+        task.addFormatter(formatter);
 
         // Create the JUnitTest
         JUnitTest test = new JUnitTest(TestSuite.class.getName());

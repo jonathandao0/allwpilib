@@ -4,15 +4,15 @@
 
 #include "frc/simulation/RelaySim.h"  // NOLINT(build/include_order)
 
+#include <gtest/gtest.h>
 #include <hal/HAL.h>
 
 #include "callback_helpers/TestCallbackHelpers.h"
 #include "frc/Relay.h"
-#include "gtest/gtest.h"
 
 namespace frc::sim {
 
-TEST(RelaySimTest, InitializationBidrectional) {
+TEST(RelaySimTest, InitializationBidirectional) {
   HAL_Initialize(500, 0);
 
   RelaySim sim(0);

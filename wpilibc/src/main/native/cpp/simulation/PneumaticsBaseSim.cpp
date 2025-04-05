@@ -4,6 +4,8 @@
 
 #include "frc/simulation/PneumaticsBaseSim.h"
 
+#include <memory>
+
 #include "frc/Errors.h"
 #include "frc/PneumaticsModuleType.h"
 #include "frc/simulation/CTREPCMSim.h"
@@ -11,11 +13,6 @@
 
 using namespace frc;
 using namespace frc::sim;
-
-PneumaticsBaseSim::PneumaticsBaseSim(int module) : m_index{module} {}
-
-PneumaticsBaseSim::PneumaticsBaseSim(const PneumaticsBase& module)
-    : m_index{module.GetModuleNumber()} {}
 
 std::shared_ptr<PneumaticsBaseSim> PneumaticsBaseSim::GetForType(
     int module, PneumaticsModuleType type) {
@@ -31,3 +28,8 @@ std::shared_ptr<PneumaticsBaseSim> PneumaticsBaseSim::GetForType(
                           static_cast<int>(module));
   }
 }
+
+PneumaticsBaseSim::PneumaticsBaseSim(int module) : m_index{module} {}
+
+PneumaticsBaseSim::PneumaticsBaseSim(const PneumaticsBase& module)
+    : m_index{module.GetModuleNumber()} {}

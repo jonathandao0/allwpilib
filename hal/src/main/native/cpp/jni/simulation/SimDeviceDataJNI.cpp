@@ -7,13 +7,15 @@
 #include <jni.h>
 
 #include <cstdio>
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include <wpi/jni_util.h>
 
 #include "SimulatorJNI.h"
 #include "edu_wpi_first_hal_simulation_SimDeviceDataJNI.h"
-#include "hal/SimDevice.h"
 #include "hal/handles/UnlimitedHandleResource.h"
 #include "hal/simulation/SimDeviceData.h"
 
@@ -468,7 +470,11 @@ JNIEXPORT jstring JNICALL
 Java_edu_wpi_first_hal_simulation_SimDeviceDataJNI_getSimDeviceName
   (JNIEnv* env, jclass, jint handle)
 {
-  return MakeJString(env, HALSIM_GetSimDeviceName(handle));
+  const char* name = HALSIM_GetSimDeviceName(handle);
+  if (!name) {
+    return nullptr;
+  }
+  return MakeJString(env, name);
 }
 
 /*

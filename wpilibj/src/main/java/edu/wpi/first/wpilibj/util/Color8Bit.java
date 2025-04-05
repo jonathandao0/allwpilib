@@ -10,9 +10,21 @@ import java.util.Objects;
 /** Represents colors with 8 bits of precision. */
 @SuppressWarnings("MemberName")
 public class Color8Bit {
+  /** Red component (0-255). */
   public final int red;
+
+  /** Green component (0-255). */
   public final int green;
+
+  /** Blue component (0-255). */
   public final int blue;
+
+  /** Constructs a default color (black). */
+  public Color8Bit() {
+    red = 0;
+    green = 0;
+    blue = 0;
+  }
 
   /**
    * Constructs a Color8Bit.
@@ -36,17 +48,35 @@ public class Color8Bit {
     this((int) (color.red * 255), (int) (color.green * 255), (int) (color.blue * 255));
   }
 
+  /**
+   * Constructs a Color8Bit from a hex string.
+   *
+   * @param hexString a string of the format <code>#RRGGBB</code>
+   * @throws IllegalArgumentException if the hex string is invalid.
+   */
+  public Color8Bit(String hexString) {
+    if (hexString.length() != 7 || !hexString.startsWith("#")) {
+      throw new IllegalArgumentException("Invalid hex string \"" + hexString + "\"");
+    }
+
+    this.red = Integer.valueOf(hexString.substring(1, 3), 16);
+    this.green = Integer.valueOf(hexString.substring(3, 5), 16);
+    this.blue = Integer.valueOf(hexString.substring(5, 7), 16);
+  }
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {
       return true;
     }
-    if (other == null || getClass() != other.getClass()) {
+    if (other == null) {
       return false;
     }
 
-    Color8Bit color8Bit = (Color8Bit) other;
-    return red == color8Bit.red && green == color8Bit.green && blue == color8Bit.blue;
+    return other instanceof Color8Bit color8Bit
+        && red == color8Bit.red
+        && green == color8Bit.green
+        && blue == color8Bit.blue;
   }
 
   @Override

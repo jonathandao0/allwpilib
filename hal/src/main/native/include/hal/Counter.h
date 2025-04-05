@@ -15,17 +15,19 @@
  * @{
  */
 
-// clang-format off
 /**
  * The counter mode.
  */
 HAL_ENUM(HAL_Counter_Mode) {
+  /** Two pulse mode. */
   HAL_Counter_kTwoPulse = 0,
+  /** Semi-period mode. */
   HAL_Counter_kSemiperiod = 1,
+  /** Pulse length mode. */
   HAL_Counter_kPulseLength = 2,
+  /** External direction mode. */
   HAL_Counter_kExternalDirection = 3
 };
-// clang-format on
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,9 +48,8 @@ HAL_CounterHandle HAL_InitializeCounter(HAL_Counter_Mode mode, int32_t* index,
  * Frees a counter.
  *
  * @param[in] counterHandle the counter handle
- * @param[out] status       Error status variable. 0 on success.
  */
-void HAL_FreeCounter(HAL_CounterHandle counterHandle, int32_t* status);
+void HAL_FreeCounter(HAL_CounterHandle counterHandle);
 
 /**
  * Sets the average sample size of a counter.
@@ -233,7 +234,7 @@ void HAL_ResetCounter(HAL_CounterHandle counterHandle, int32_t* status);
  */
 int32_t HAL_GetCounter(HAL_CounterHandle counterHandle, int32_t* status);
 
-/*
+/**
  * Gets the Period of the most recent count.
  *
  * Returns the time interval of the most recent count. This can be used for

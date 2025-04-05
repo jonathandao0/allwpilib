@@ -4,6 +4,10 @@
 
 #include "wpinet/uv/GetNameInfo.h"
 
+#include <functional>
+#include <memory>
+#include <utility>
+
 #include "wpinet/uv/Loop.h"
 #include "wpinet/uv/util.h"
 
@@ -15,6 +19,9 @@ GetNameInfoReq::GetNameInfoReq() {
 
 void GetNameInfo(Loop& loop, const std::shared_ptr<GetNameInfoReq>& req,
                  const sockaddr& addr, int flags) {
+  if (loop.IsClosing()) {
+    return;
+  }
   int err = uv_getnameinfo(
       loop.GetRaw(), req->GetRaw(),
       [](uv_getnameinfo_t* req, int status, const char* hostname,

@@ -10,42 +10,34 @@ file(GLOB wpigui_unix_src src/main/native/opengl3/*.cpp)
 
 add_library(wpigui STATIC ${wpigui_src})
 set_target_properties(wpigui PROPERTIES DEBUG_POSTFIX "d")
-set_property(TARGET wpigui PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 set_property(TARGET wpigui PROPERTY FOLDER "libraries")
 
 wpilib_target_warnings(wpigui)
 target_link_libraries(wpigui PUBLIC imgui)
 
-target_include_directories(wpigui PUBLIC
-                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/main/native/include>
-                            $<INSTALL_INTERFACE:${include_dest}/wpigui>)
+target_include_directories(
+    wpigui
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/main/native/include>
+        $<INSTALL_INTERFACE:${include_dest}/wpigui>
+)
 
-if (MSVC)
+if(MSVC)
     target_sources(wpigui PRIVATE ${wpigui_windows_src})
+elseif(APPLE)
+    target_compile_options(wpigui PRIVATE -fobjc-arc)
+    wpilib_link_macos_gui(wpigui)
+    target_sources(wpigui PRIVATE ${wpigui_mac_src})
 else()
-    if (APPLE)
-        target_compile_options(wpigui PRIVATE -fobjc-arc)
-        set_target_properties(wpigui PROPERTIES LINK_FLAGS "-framework Metal -framework QuartzCore")
-        target_sources(wpigui PRIVATE ${wpigui_mac_src})
-    else()
-        target_sources(wpigui PRIVATE ${wpigui_unix_src})
-    endif()
+    target_sources(wpigui PRIVATE ${wpigui_unix_src})
 endif()
 
 add_executable(wpiguidev src/dev/native/cpp/main.cpp)
 wpilib_link_macos_gui(wpiguidev)
+wpilib_target_warnings(wpiguidev)
 target_link_libraries(wpiguidev wpigui)
 
-install(TARGETS wpigui EXPORT wpigui DESTINATION "${main_lib_dest}")
+install(TARGETS wpigui EXPORT wpigui)
+export(TARGETS wpigui FILE wpigui.cmake NAMESPACE wpigui::)
 install(DIRECTORY src/main/native/include/ DESTINATION "${include_dest}/wpigui")
-
-#if (WITH_FLAT_INSTALL)
-#    set (wpigui_config_dir ${wpilib_dest})
-#else()
-#    set (wpigui_config_dir share/wpigui)
-#endif()
-
-#configure_file(wpigui-config.cmake.in ${WPILIB_BINARY_DIR}/wpigui-config.cmake )
-#install(FILES ${WPILIB_BINARY_DIR}/wpigui-config.cmake DESTINATION ${wpigui_config_dir})
-#install(EXPORT wpigui DESTINATION ${wpigui_config_dir})

@@ -47,8 +47,7 @@ public class PneumaticsControlModule implements PneumaticsBase {
 
   private static DataStore getForModule(int module) {
     synchronized (m_handleLock) {
-      Integer moduleBoxed = module;
-      DataStore pcm = m_handleMap.get(moduleBoxed);
+      DataStore pcm = m_handleMap.get(module);
       if (pcm == null) {
         pcm = new DataStore(module);
       }
@@ -186,10 +185,23 @@ public class PneumaticsControlModule implements PneumaticsBase {
     return CTREPCMJNI.getSolenoidDisabledList(m_handle);
   }
 
+  /**
+   * Returns whether the solenoid is currently reporting a voltage fault.
+   *
+   * @return True if solenoid is reporting a fault, otherwise false.
+   * @see #getSolenoidVoltageStickyFault()
+   */
   public boolean getSolenoidVoltageFault() {
     return CTREPCMJNI.getSolenoidVoltageFault(m_handle);
   }
 
+  /**
+   * Returns whether the solenoid has reported a voltage fault since sticky faults were last
+   * cleared. This fault is persistent and can be cleared by ClearAllStickyFaults()
+   *
+   * @return True if solenoid is reporting a fault, otherwise false.
+   * @see #getSolenoidVoltageFault()
+   */
   public boolean getSolenoidVoltageStickyFault() {
     return CTREPCMJNI.getSolenoidVoltageStickyFault(m_handle);
   }

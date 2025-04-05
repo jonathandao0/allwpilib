@@ -6,11 +6,12 @@
 
 #include <functional>
 #include <memory>
-#include <string>
 #include <string_view>
+#include <utility>
 
+#include <fmt/format.h>
 #include <hal/simulation/NotifyListener.h>
-#include <wpi/json.h>
+#include <wpi/json_fwd.h>
 #include <wpi/mutex.h>
 
 #include "WSBaseProvider.h"
@@ -56,11 +57,19 @@ using WSRegisterFunc = std::function<void(
 
 template <typename T>
 void CreateProviders(std::string_view prefix, int32_t numChannels,
-                     WSRegisterFunc webRegisterFunc);
+                     WSRegisterFunc webRegisterFunc) {
+  for (int32_t i = 0; i < numChannels; i++) {
+    auto key = fmt::format("{}/{}", prefix, i);
+    auto ptr = std::make_unique<T>(i, key, prefix);
+    webRegisterFunc(key, std::move(ptr));
+  }
+}
 
 template <typename T>
-void CreateSingleProvider(std::string_view key, WSRegisterFunc webRegisterFunc);
+void CreateSingleProvider(std::string_view key,
+                          WSRegisterFunc webRegisterFunc) {
+  auto ptr = std::make_unique<T>(key, key);
+  webRegisterFunc(key, std::move(ptr));
+}
 
 }  // namespace wpilibws
-
-#include "WSHalProviders.inc"

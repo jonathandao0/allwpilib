@@ -1,12 +1,11 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_SMART_PTR_HPP_INCLUDED
 #define WPI_MEMORY_SMART_PTR_HPP_INCLUDED
 
 /// \file
-/// \c std::make_unique() / \c std::make_shared() replacement allocating memory through a \concept{concept_rawallocator,RawAllocator}.
+/// \c std::make_unique() / \c std::make_shared() replacement allocating memory through a RawAllocator.
 /// \note Only available on a hosted implementation.
 
 #include "config.hpp"
@@ -86,33 +85,33 @@ namespace wpi
             }
         } // namespace detail
 
-        /// A \c std::unique_ptr that deletes using a \concept{concept_rawallocator,RawAllocator}.
+        /// A \c std::unique_ptr that deletes using a RawAllocator.
         ///
         /// It is an alias template using \ref allocator_deleter as \c Deleter class.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <typename T, class RawAllocator>
         WPI_ALIAS_TEMPLATE(unique_ptr,
                                  std::unique_ptr<T, allocator_deleter<T, RawAllocator>>);
 
-        /// A \c std::unique_ptr that deletes using a \concept{concept_rawallocator,RawAllocator} and allows polymorphic types.
+        /// A \c std::unique_ptr that deletes using a RawAllocator and allows polymorphic types.
         ///
         /// It can only be created by converting a regular unique pointer to a pointer to a derived class,
         /// and is meant to be used inside containers.
         /// It is an alias template using \ref allocator_polymorphic_deleter as \c Deleter class.
         /// \note It has a relatively high overhead, so only use it if you have to.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <class BaseType, class RawAllocator>
         WPI_ALIAS_TEMPLATE(
             unique_base_ptr,
             std::unique_ptr<BaseType, allocator_polymorphic_deleter<BaseType, RawAllocator>>);
 
-        /// Creates a \c std::unique_ptr using a \concept{concept_rawallocator,RawAllocator} for the allocation.
+        /// Creates a \c std::unique_ptr using a RawAllocator for the allocation.
         /// \effects Allocates memory for the given type using the allocator
         /// and creates a new object inside it passing the given arguments to its constructor.
         /// \returns A \c std::unique_ptr owning that memory.
         /// \note If the allocator is stateful a reference to the \c RawAllocator will be stored inside the deleter,
         /// the caller has to ensure that the object lives as long as the smart pointer.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <typename T, class RawAllocator, typename... Args>
         auto allocate_unique(RawAllocator&& alloc, Args&&... args) -> WPI_REQUIRES_RET(
             !std::is_array<T>::value,
@@ -123,14 +122,14 @@ namespace wpi
                                               detail::forward<Args>(args)...);
         }
 
-        /// Creates a \c std::unique_ptr using a type-erased \concept{concept_rawallocator,RawAllocator} for the allocation.
+        /// Creates a \c std::unique_ptr using a type-erased RawAllocator for the allocation.
         /// It is the same as the other overload but stores the reference to the allocator type-erased inside the \c std::unique_ptr.
         /// \effects Allocates memory for the given type using the allocator
         /// and creates a new object inside it passing the given arguments to its constructor.
         /// \returns A \c std::unique_ptr with a type-erased allocator reference owning that memory.
         /// \note If the allocator is stateful a reference to the \c RawAllocator will be stored inside the deleter,
         /// the caller has to ensure that the object lives as long as the smart pointer.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <typename T, class RawAllocator, typename... Args>
         auto allocate_unique(any_allocator, RawAllocator&& alloc, Args&&... args)
             -> WPI_REQUIRES_RET(!std::is_array<T>::value,
@@ -142,12 +141,12 @@ namespace wpi
                                                              detail::forward<Args>(args)...);
         }
 
-        /// Creates a \c std::unique_ptr owning an array using a \concept{concept_rawallocator,RawAllocator} for the allocation.
+        /// Creates a \c std::unique_ptr owning an array using a RawAllocator for the allocation.
         /// \effects Allocates memory for an array of given size and value initializes each element inside of it.
         /// \returns A \c std::unique_ptr owning that array.
         /// \note If the allocator is stateful a reference to the \c RawAllocator will be stored inside the deleter,
         /// the caller has to ensure that the object lives as long as the smart pointer.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <typename T, class RawAllocator>
         auto allocate_unique(RawAllocator&& alloc, std::size_t size) -> WPI_REQUIRES_RET(
             std::is_array<T>::value,
@@ -159,13 +158,13 @@ namespace wpi
                                                           detail::forward<RawAllocator>(alloc)));
         }
 
-        /// Creates a \c std::unique_ptr owning an array using a type-erased \concept{concept_rawallocator,RawAllocator} for the allocation.
+        /// Creates a \c std::unique_ptr owning an array using a type-erased RawAllocator for the allocation.
         /// It is the same as the other overload but stores the reference to the allocator type-erased inside the \c std::unique_ptr.
         /// \effects Allocates memory for an array of given size and value initializes each element inside of it.
         /// \returns A \c std::unique_ptr with a type-erased allocator reference owning that array.
         /// \note If the allocator is stateful a reference to the \c RawAllocator will be stored inside the deleter,
         /// the caller has to ensure that the object lives as long as the smart pointer.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <typename T, class RawAllocator>
         auto allocate_unique(any_allocator, RawAllocator&& alloc, std::size_t size)
             -> WPI_REQUIRES_RET(std::is_array<T>::value,
@@ -178,13 +177,13 @@ namespace wpi
                                                                         alloc)));
         }
 
-        /// Creates a \c std::shared_ptr using a \concept{concept_rawallocator,RawAllocator} for the allocation.
+        /// Creates a \c std::shared_ptr using a RawAllocator for the allocation.
         /// It is similar to \c std::allocate_shared but uses a \c RawAllocator (and thus also supports any \c Allocator).
         /// \effects Calls \ref std_allocator::make_std_allocator to wrap the allocator and forwards to \c std::allocate_shared.
         /// \returns A \c std::shared_ptr created using \c std::allocate_shared.
         /// \note If the allocator is stateful a reference to the \c RawAllocator will be stored inside the shared pointer,
         /// the caller has to ensure that the object lives as long as the smart pointer.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <typename T, class RawAllocator, typename... Args>
         std::shared_ptr<T> allocate_shared(RawAllocator&& alloc, Args&&... args)
         {
@@ -192,18 +191,6 @@ namespace wpi
                                                detail::forward<RawAllocator>(alloc)),
                                            detail::forward<Args>(args)...);
         }
-
-#if !defined(DOXYGEN)
-#include "detail/container_node_sizes.hpp"
-#else
-        /// Contains the node size needed for a `std::shared_ptr`.
-        /// These classes are auto-generated and only available if the tools are build and without cross-compiling.
-        /// \ingroup adapter
-        template <typename T>
-        struct shared_ptr_node_size : std::integral_constant<std::size_t, implementation_defined>
-        {
-        };
-#endif
     } // namespace memory
 } // namespace wpi
 

@@ -24,6 +24,7 @@ import edu.wpi.first.util.sendable.SendableRegistry;
  */
 public class Compressor implements Sendable, AutoCloseable {
   private PneumaticsBase m_module;
+  private PneumaticsModuleType m_moduleType;
 
   /**
    * Constructs a compressor for a specified module and type.
@@ -31,8 +32,10 @@ public class Compressor implements Sendable, AutoCloseable {
    * @param module The module ID to use.
    * @param moduleType The module type to use.
    */
+  @SuppressWarnings("this-escape")
   public Compressor(int module, PneumaticsModuleType moduleType) {
     m_module = PneumaticsBase.getForType(module, moduleType);
+    m_moduleType = moduleType;
 
     if (!m_module.reserveCompressor()) {
       m_module.close();
@@ -60,18 +63,6 @@ public class Compressor implements Sendable, AutoCloseable {
     m_module.unreserveCompressor();
     m_module.close();
     m_module = null;
-  }
-
-  /**
-   * Get the status of the compressor. To (re)enable the compressor use enableDigital() or
-   * enableAnalog(...).
-   *
-   * @return true if the compressor is on
-   * @deprecated To avoid confusion in thinking this (re)enables the compressor use IsEnabled().
-   */
-  @Deprecated(since = "2023", forRemoval = true)
-  public boolean enabled() {
-    return isEnabled();
   }
 
   /**
@@ -205,5 +196,10 @@ public class Compressor implements Sendable, AutoCloseable {
     builder.setSmartDashboardType("Compressor");
     builder.addBooleanProperty("Enabled", this::isEnabled, null);
     builder.addBooleanProperty("Pressure switch", this::getPressureSwitchValue, null);
+    builder.addDoubleProperty("Current (A)", this::getCurrent, null);
+    if (m_moduleType == PneumaticsModuleType.REVPH) { // These are not supported by the CTRE PCM
+      builder.addDoubleProperty("Analog Voltage", this::getAnalogVoltage, null);
+      builder.addDoubleProperty("Pressure (PSI)", this::getPressure, null);
+    }
   }
 }

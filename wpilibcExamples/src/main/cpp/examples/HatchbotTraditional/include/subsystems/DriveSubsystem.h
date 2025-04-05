@@ -6,7 +6,6 @@
 
 #include <frc/Encoder.h>
 #include <frc/drive/DifferentialDrive.h>
-#include <frc/motorcontrol/MotorControllerGroup.h>
 #include <frc/motorcontrol/PWMSparkMax.h>
 #include <frc2/command/SubsystemBase.h>
 
@@ -44,26 +43,14 @@ class DriveSubsystem : public frc2::SubsystemBase {
   double GetAverageEncoderDistance();
 
   /**
-   * Gets the left drive encoder.
-   *
-   * @return the left drive encoder
-   */
-  frc::Encoder& GetLeftEncoder();
-
-  /**
-   * Gets the right drive encoder.
-   *
-   * @return the right drive encoder
-   */
-  frc::Encoder& GetRightEncoder();
-
-  /**
    * Sets the max output of the drive.  Useful for scaling the drive to drive
    * more slowly.
    *
    * @param maxOutput the maximum output to which the drive will be constrained
    */
   void SetMaxOutput(double maxOutput);
+
+  void InitSendable(wpi::SendableBuilder& builder) override;
 
  private:
   // Components (e.g. motor controllers and sensors) should generally be
@@ -75,14 +62,9 @@ class DriveSubsystem : public frc2::SubsystemBase {
   frc::PWMSparkMax m_right1;
   frc::PWMSparkMax m_right2;
 
-  // The motors on the left side of the drive
-  frc::MotorControllerGroup m_leftMotors{m_left1, m_left2};
-
-  // The motors on the right side of the drive
-  frc::MotorControllerGroup m_rightMotors{m_right1, m_right2};
-
   // The robot's drive
-  frc::DifferentialDrive m_drive{m_leftMotors, m_rightMotors};
+  frc::DifferentialDrive m_drive{[&](double output) { m_left1.Set(output); },
+                                 [&](double output) { m_right1.Set(output); }};
 
   // The left-side drive encoder
   frc::Encoder m_leftEncoder;

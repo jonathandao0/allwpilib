@@ -4,15 +4,15 @@
 
 #pragma once
 
+#include <concepts>
 #include <functional>
-#include <initializer_list>
 #include <memory>
-#include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "frc2/command/CommandBase.h"
+#include "frc2/command/Command.h"
+#include "frc2/command/Requirements.h"
 
 namespace frc2 {
 /**
@@ -27,17 +27,18 @@ namespace frc2 {
  */
 class CommandPtr final {
  public:
-  explicit CommandPtr(std::unique_ptr<CommandBase>&& command)
-      : m_ptr(std::move(command)) {}
+  explicit CommandPtr(std::unique_ptr<Command>&& command);
 
-  template <class T, typename = std::enable_if_t<std::is_base_of_v<
-                         Command, std::remove_reference_t<T>>>>
+  template <std::derived_from<Command> T>
+  // NOLINTNEXTLINE(bugprone-forwarding-reference-overload)
   explicit CommandPtr(T&& command)
-      : CommandPtr(std::make_unique<std::remove_reference_t<T>>(
-            std::forward<T>(command))) {}
+      : CommandPtr(
+            std::make_unique<std::decay_t<T>>(std::forward<T>(command))) {}
 
-  CommandPtr(CommandPtr&&) = default;
+  CommandPtr(CommandPtr&&);
   CommandPtr& operator=(CommandPtr&&) = default;
+
+  explicit CommandPtr(std::nullptr_t) = delete;
 
   /**
    * Decorates this command to run repeatedly, restarting it when it ends, until
@@ -45,33 +46,40 @@ class CommandPtr final {
    *
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr Repeatedly() &&;
+  [[nodiscard]]
+  CommandPtr Repeatedly() &&;
 
   /**
-   * Decorates this command to run "by proxy" by wrapping it in a
-   * ProxyCommand. This is useful for "forking off" from command groups
-   * when the user does not wish to extend the command's requirements to the
-   * entire command group.
+   * Decorates this command to run "by proxy" by wrapping it in a ProxyCommand.
+   * Use this for "forking off" from command compositions when the user does not
+   * wish to extend the command's requirements to the entire command
+   * composition. ProxyCommand has unique implications and semantics, see <a
+   * href="https://docs.wpilib.org/en/stable/docs/software/commandbased/command-compositions.html#scheduling-other-commands">the
+   * WPILib docs</a> for a full explanation.
    *
    * @return the decorated command
+   * @see ProxyCommand
    */
-  [[nodiscard]] CommandPtr AsProxy() &&;
-
-  /**
-   * Decorates this command to run or stop when disabled.
-   *
-   * @param doesRunWhenDisabled true to run when disabled.
-   * @return the decorated command
-   */
-  [[nodiscard]] CommandPtr IgnoringDisable(bool doesRunWhenDisabled) &&;
+  [[nodiscard]]
+  CommandPtr AsProxy() &&;
 
   /**
    * Decorates this command to run or stop when disabled.
    *
-   * @param interruptBehavior true to run when disabled.
+   * @param doesRunWhenDisabled true to run when disabled
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr WithInterruptBehavior(
+  [[nodiscard]]
+  CommandPtr IgnoringDisable(bool doesRunWhenDisabled) &&;
+
+  /**
+   * Decorates this command to have a different interrupt behavior.
+   *
+   * @param interruptBehavior the desired interrupt behavior
+   * @return the decorated command
+   */
+  [[nodiscard]]
+  CommandPtr WithInterruptBehavior(
       Command::InterruptionBehavior interruptBehavior) &&;
 
   /**
@@ -81,20 +89,9 @@ class CommandPtr final {
    * @param requirements the required subsystems
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr AndThen(
-      std::function<void()> toRun,
-      std::span<Subsystem* const> requirements = {}) &&;
-
-  /**
-   * Decorates this command with a runnable to run after the command finishes.
-   *
-   * @param toRun the Runnable to run
-   * @param requirements the required subsystems
-   * @return the decorated command
-   */
-  [[nodiscard]] CommandPtr AndThen(
-      std::function<void()> toRun,
-      std::initializer_list<Subsystem*> requirements) &&;
+  [[nodiscard]]
+  CommandPtr AndThen(std::function<void()> toRun,
+                     Requirements requirements = {}) &&;
 
   /**
    * Decorates this command with a set of commands to run after it in sequence.
@@ -104,7 +101,8 @@ class CommandPtr final {
    * @param next the commands to run next
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr AndThen(CommandPtr&& next) &&;
+  [[nodiscard]]
+  CommandPtr AndThen(CommandPtr&& next) &&;
 
   /**
    * Decorates this command with a runnable to run before this command starts.
@@ -113,20 +111,9 @@ class CommandPtr final {
    * @param requirements the required subsystems
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr BeforeStarting(
-      std::function<void()> toRun,
-      std::initializer_list<Subsystem*> requirements) &&;
-
-  /**
-   * Decorates this command with a runnable to run before this command starts.
-   *
-   * @param toRun the Runnable to run
-   * @param requirements the required subsystems
-   * @return the decorated command
-   */
-  [[nodiscard]] CommandPtr BeforeStarting(
-      std::function<void()> toRun,
-      std::span<Subsystem* const> requirements = {}) &&;
+  [[nodiscard]]
+  CommandPtr BeforeStarting(std::function<void()> toRun,
+                            Requirements requirements = {}) &&;
 
   /**
    * Decorates this command with another command to run before this command
@@ -135,29 +122,41 @@ class CommandPtr final {
    * @param before the command to run before this one
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr BeforeStarting(CommandPtr&& before) &&;
+  [[nodiscard]]
+  CommandPtr BeforeStarting(CommandPtr&& before) &&;
 
   /**
-   * Decorates this command with a timeout.  If the specified timeout is
+   * Decorates this command with a timeout. If the specified timeout is
    * exceeded before the command finishes normally, the command will be
-   * interrupted and un-scheduled.  Note that the timeout only applies to the
-   * command returned by this method; the calling command is not itself changed.
+   * interrupted and un-scheduled.
    *
    * @param duration the timeout duration
    * @return the command with the timeout added
    */
-  [[nodiscard]] CommandPtr WithTimeout(units::second_t duration) &&;
+  [[nodiscard]]
+  CommandPtr WithTimeout(units::second_t duration) &&;
 
   /**
-   * Decorates this command with an interrupt condition.  If the specified
+   * Decorates this command with an interrupt condition. If the specified
    * condition becomes true before the command finishes normally, the command
-   * will be interrupted and un-scheduled. Note that this only applies to the
-   * command returned by this method; the calling command is not itself changed.
+   * will be interrupted and un-scheduled.
    *
    * @param condition the interrupt condition
    * @return the command with the interrupt condition added
    */
-  [[nodiscard]] CommandPtr Until(std::function<bool()> condition) &&;
+  [[nodiscard]]
+  CommandPtr Until(std::function<bool()> condition) &&;
+
+  /**
+   * Decorates this command with a run condition. If the specified condition
+   * becomes false before the command finishes normally, the command will be
+   * interrupted and un-scheduled.
+   *
+   * @param condition the run condition
+   * @return the command with the run condition added
+   */
+  [[nodiscard]]
+  CommandPtr OnlyWhile(std::function<bool()> condition) &&;
 
   /**
    * Decorates this command to only run if this condition is not met. If the
@@ -168,7 +167,30 @@ class CommandPtr final {
    * @param condition the condition that will prevent the command from running
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr Unless(std::function<bool()> condition) &&;
+  [[nodiscard]]
+  CommandPtr Unless(std::function<bool()> condition) &&;
+
+  /**
+   * Decorates this command to only run if this condition is met. If the command
+   * is already running and the condition changes to false, the command will not
+   * stop running. The requirements of this command will be kept for the new
+   * conditional command.
+   *
+   * @param condition the condition that will allow the command to run
+   * @return the decorated command
+   */
+  [[nodiscard]]
+  CommandPtr OnlyIf(std::function<bool()> condition) &&;
+
+  /**
+   * Creates a new command that runs this command and the deadline in parallel,
+   * finishing (and interrupting this command) when the deadline finishes.
+   *
+   * @param deadline the deadline of the command group
+   * @return the decorated command
+   * @see DeadlineFor
+   */
+  CommandPtr WithDeadline(CommandPtr&& deadline) &&;
 
   /**
    * Decorates this command with a set of commands to run parallel to it, ending
@@ -179,8 +201,21 @@ class CommandPtr final {
    * @param parallel the commands to run in parallel
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr DeadlineWith(CommandPtr&& parallel) &&;
+  [[nodiscard]] [[deprecated("Replace with DeadlineFor")]]
+  CommandPtr DeadlineWith(CommandPtr&& parallel) &&;
 
+  /**
+   * Decorates this command with a set of commands to run parallel to it, ending
+   * when the calling command ends and interrupting all the others. Often more
+   * convenient/less-verbose than constructing a new {@link
+   * ParallelDeadlineGroup} explicitly.
+   *
+   * @param parallel the commands to run in parallel. Note the parallel commands
+   * will be interupted when the deadline command ends
+   * @return the decorated command
+   */
+  [[nodiscard]]
+  CommandPtr DeadlineFor(CommandPtr&& parallel) &&;
   /**
    * Decorates this command with a set of commands to run parallel to it, ending
    * when the last command ends. Often more convenient/less-verbose than
@@ -189,7 +224,8 @@ class CommandPtr final {
    * @param parallel the commands to run in parallel
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr AlongWith(CommandPtr&& parallel) &&;
+  [[nodiscard]]
+  CommandPtr AlongWith(CommandPtr&& parallel) &&;
 
   /**
    * Decorates this command with a set of commands to run parallel to it, ending
@@ -199,17 +235,31 @@ class CommandPtr final {
    * @param parallel the commands to run in parallel
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr RaceWith(CommandPtr&& parallel) &&;
+  [[nodiscard]]
+  CommandPtr RaceWith(CommandPtr&& parallel) &&;
 
   /**
    * Decorates this command with a lambda to call on interrupt or end, following
    * the command's inherent Command::End(bool) method.
    *
    * @param end a lambda accepting a boolean parameter specifying whether the
-   * command was interrupted.
+   * command was interrupted
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr FinallyDo(std::function<void(bool)> end) &&;
+  [[nodiscard]]
+  CommandPtr FinallyDo(std::function<void(bool)> end) &&;
+
+  /**
+   * Decorates this command with a lambda to call on interrupt or end, following
+   * the command's inherent Command::End(bool) method. The provided lambda will
+   * run identically in both interrupt and end cases.
+   *
+   * @param end a lambda to run when the command ends, whether or not it was
+   * interrupted.
+   * @return the decorated command
+   */
+  [[nodiscard]]
+  CommandPtr FinallyDo(std::function<void()> end) &&;
 
   /**
    * Decorates this command with a lambda to call on interrupt, following the
@@ -218,7 +268,8 @@ class CommandPtr final {
    * @param handler a lambda to run when the command is interrupted
    * @return the decorated command
    */
-  [[nodiscard]] CommandPtr HandleInterrupt(std::function<void()> handler) &&;
+  [[nodiscard]]
+  CommandPtr HandleInterrupt(std::function<void()> handler) &&;
 
   /**
    * Decorates this Command with a name. Is an inline function for
@@ -227,28 +278,38 @@ class CommandPtr final {
    * @param name name
    * @return the decorated Command
    */
-  [[nodiscard]] CommandPtr WithName(std::string_view name) &&;
+  [[nodiscard]]
+  CommandPtr WithName(std::string_view name) &&;
 
   /**
    * Get a raw pointer to the held command.
    */
-  CommandBase* get() const;
+  Command* get() const&;
+
+  // Prevent calls on a temporary, as the returned pointer would be invalid
+  Command* get() && = delete;
 
   /**
    * Convert to the underlying unique_ptr.
    */
-  std::unique_ptr<CommandBase> Unwrap() &&;
+  std::unique_ptr<Command> Unwrap() &&;
 
   /**
    * Schedules this command.
    */
-  void Schedule() const;
+  void Schedule() const&;
+
+  // Prevent calls on a temporary, as the returned pointer would be invalid
+  void Schedule() && = delete;
 
   /**
    * Cancels this command. Will call End(true). Commands will be canceled
    * regardless of interruption behavior.
    */
-  void Cancel() const;
+  void Cancel() const&;
+
+  // Prevent calls on a temporary, as the returned pointer would be invalid
+  void Cancel() && = delete;
 
   /**
    * Whether or not the command is currently scheduled. Note that this does not
@@ -257,7 +318,10 @@ class CommandPtr final {
    *
    * @return Whether the command is scheduled.
    */
-  bool IsScheduled() const;
+  bool IsScheduled() const&;
+
+  // Prevent calls on a temporary, as the returned pointer would be invalid
+  void IsScheduled() && = delete;
 
   /**
    * Whether the command requires a given subsystem.  Named "HasRequirement"
@@ -267,12 +331,18 @@ class CommandPtr final {
    * @param requirement the subsystem to inquire about
    * @return whether the subsystem is required
    */
-  bool HasRequirement(Subsystem* requirement) const;
+  bool HasRequirement(Subsystem* requirement) const&;
+
+  // Prevent calls on a temporary, as the returned pointer would be invalid
+  void HasRequirement(Subsystem* requirement) && = delete;
 
   /**
    * Check if this CommandPtr object is valid and wasn't moved-from.
    */
-  explicit operator bool() const;
+  explicit operator bool() const&;
+
+  // Prevent calls on a temporary, as the returned pointer would be invalid
+  explicit operator bool() && = delete;
 
   /**
    * Convert a vector of CommandPtr objects to their underlying unique_ptrs.
@@ -281,7 +351,8 @@ class CommandPtr final {
       std::vector<CommandPtr>&& vec);
 
  private:
-  std::unique_ptr<CommandBase> m_ptr;
+  std::unique_ptr<Command> m_ptr;
+  std::string m_moveOutSite{""};
   void AssertValid() const;
 };
 

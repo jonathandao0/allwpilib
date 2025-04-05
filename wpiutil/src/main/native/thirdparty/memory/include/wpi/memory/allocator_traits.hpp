@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_ALLOCATOR_TRAITS_HPP_INCLUDED
 #define WPI_MEMORY_ALLOCATOR_TRAITS_HPP_INCLUDED
@@ -51,11 +50,11 @@ namespace wpi
             };
         } // namespace detail
 
-        /// Traits class that checks whether or not a standard \c Allocator can be used as \concept{concept_rawallocator,RawAllocator}.
+        /// Traits class that checks whether or not a standard \c Allocator can be used as RawAllocator.
         /// It checks the existence of a custom \c construct(), \c destroy() function, if provided,
         /// it cannot be used since it would not be called.<br>
         /// Specialize it for custom \c Allocator types to override this check.
-        /// \ingroup core
+        /// \ingroup memory_core
         template <class Allocator>
         struct allocator_is_raw_allocator
         : WPI_EBO(detail::check_standard_allocator<Allocator>::valid)
@@ -63,7 +62,7 @@ namespace wpi
         };
 
         /// Specialization of \ref allocator_is_raw_allocator that allows \c std::allocator again.
-        /// \ingroup core
+        /// \ingroup memory_core
         template <typename T>
         struct allocator_is_raw_allocator<std::allocator<T>> : std::true_type
         {
@@ -284,10 +283,10 @@ namespace wpi
             }
         } // namespace traits_detail
 
-        /// The default specialization of the allocator_traits for a \concept{concept_rawallocator,RawAllocator}.
+        /// The default specialization of the allocator_traits for a RawAllocator.
         /// See the last link for the requirements on types that do not specialize this class and the interface documentation.
         /// Any specialization must provide the same interface.
-        /// \ingroup core
+        /// \ingroup memory_core
         template <class Allocator>
         class allocator_traits
         {
@@ -375,12 +374,12 @@ namespace wpi
 
             template <typename T>
             struct has_invalid_alloc_function
-            : std::is_same<decltype(
-                               traits_detail::allocate_node(traits_detail::full_concept{},
-                                                            std::declval<typename allocator_traits<
-                                                                T>::allocator_type&>(),
-                                                            0, 0)),
-                           traits_detail::error>
+            : std::is_same<
+                  decltype(traits_detail::allocate_node(traits_detail::full_concept{},
+                                                        std::declval<typename allocator_traits<
+                                                            T>::allocator_type&>(),
+                                                        0, 0)),
+                  traits_detail::error>
             {
             };
 
@@ -409,9 +408,9 @@ namespace wpi
             };
         } // namespace detail
 
-        /// Traits that check whether a type models concept \concept{concept_rawallocator,RawAllocator}.<br>
+        /// Traits that check whether a type models concept RawAllocator.<br>
         /// It must either provide the necessary functions for the default traits specialization or has specialized it.
-        /// \ingroup core
+        /// \ingroup memory_core
         template <typename T>
         struct is_raw_allocator
         : detail::is_raw_allocator<T,
@@ -492,10 +491,10 @@ namespace wpi
             }
         } // namespace traits_detail
 
-        /// The default specialization of the composable_allocator_traits for a \concept{concept_composableallocator,ComposableAllocator}.
+        /// The default specialization of the composable_allocator_traits for a ComposableAllocator.
         /// See the last link for the requirements on types that do not specialize this class and the interface documentation.
         /// Any specialization must provide the same interface.
-        /// \ingroup core
+        /// \ingroup memory_core
         template <class Allocator>
         class composable_allocator_traits
         {
@@ -564,13 +563,12 @@ namespace wpi
 
             template <typename T>
             struct has_invalid_try_dealloc_function
-            : std::is_same<
-                  decltype(
-                      traits_detail::try_deallocate_node(traits_detail::full_concept{},
-                                                         std::declval<typename allocator_traits<
-                                                             T>::allocator_type&>(),
-                                                         nullptr, 0, 0)),
-                  traits_detail::error>
+            : std::is_same<decltype(traits_detail::
+                                        try_deallocate_node(traits_detail::full_concept{},
+                                                            std::declval<typename allocator_traits<
+                                                                T>::allocator_type&>(),
+                                                            nullptr, 0, 0)),
+                           traits_detail::error>
             {
             };
 
@@ -588,9 +586,9 @@ namespace wpi
             };
         } // namespace detail
 
-        /// Traits that check whether a type models concept \concept{concept_rawallocator,ComposableAllocator}.<br>
-        /// It must be a \concept{concept_rawallocator,RawAllocator} and either provide the necessary functions for the default traits specialization or has specialized it.
-        /// \ingroup core
+        /// Traits that check whether a type models concept ComposableAllocator.<br>
+        /// It must be a RawAllocator and either provide the necessary functions for the default traits specialization or has specialized it.
+        /// \ingroup memory_core
         template <typename T>
         struct is_composable_allocator
         : detail::is_composable_allocator<T, decltype(detail::composable_alloc_uses_default_traits(

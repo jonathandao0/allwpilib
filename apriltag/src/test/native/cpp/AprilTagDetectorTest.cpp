@@ -2,8 +2,9 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
+#include <gtest/gtest.h>
+
 #include "frc/apriltag/AprilTagDetector.h"
-#include "gtest/gtest.h"
 
 using namespace frc;
 
@@ -38,11 +39,6 @@ TEST(AprilTagDetectorTest, Add16h5) {
   ASSERT_TRUE(detector.AddFamily("tag16h5"));
   // duplicate addition is also okay
   ASSERT_TRUE(detector.AddFamily("tag16h5"));
-}
-
-TEST(AprilTagDetectorTest, Add25h9) {
-  AprilTagDetector detector;
-  ASSERT_TRUE(detector.AddFamily("tag25h9"));
 }
 
 TEST(AprilTagDetectorTest, Add36h11) {

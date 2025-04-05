@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <memory>
 #include <thread>
 
 #include <FRC_NetworkCommunication/LoadOut.h>
@@ -47,7 +48,7 @@ namespace detail {
 wpi::mutex& UnsafeGetDIOMutex() {
   return digitalDIOMutex;
 }
-tDIO* UnsafeGetDigialSystem() {
+tDIO* UnsafeGetDigitalSystem() {
   return digitalSystem.get();
 }
 int32_t ComputeDigitalMask(HAL_DigitalHandle handle, int32_t* status) {
@@ -112,9 +113,7 @@ void initializeDigital(int32_t* status) {
 
   pwmSystem->writeConfig_Period(std::lround(kDefaultPwmPeriod / loopTime),
                                 status);
-  uint16_t minHigh = std::lround(
-      (kDefaultPwmCenter - kDefaultPwmStepsDown * loopTime) / loopTime);
-  pwmSystem->writeConfig_MinHigh(minHigh, status);
+  pwmSystem->writeConfig_MinHigh(0, status);
   // Ensure that PWM output values are set to OFF
   for (uint8_t pwmIndex = 0; pwmIndex < kNumPWMChannels; pwmIndex++) {
     // Copy of SetPWM

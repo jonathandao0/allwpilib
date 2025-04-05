@@ -6,8 +6,8 @@
 
 #include <memory>
 
+#include <hal/Encoder.h>
 #include <hal/Types.h>
-#include <wpi/deprecated.h>
 #include <wpi/sendable/Sendable.h>
 #include <wpi/sendable/SendableHelper.h>
 
@@ -43,10 +43,17 @@ class Encoder : public CounterBase,
   friend class DMASample;
 
  public:
+  /**
+   * Encoder indexing types.
+   */
   enum IndexingType {
+    /// Reset while the signal is high.
     kResetWhileHigh,
+    /// Reset while the signal is low.
     kResetWhileLow,
+    /// Reset on falling edge of the signal.
     kResetOnFallingEdge,
+    /// Reset on rising edge of the signal.
     kResetOnRisingEdge
   };
 
@@ -132,10 +139,10 @@ class Encoder : public CounterBase,
           std::shared_ptr<DigitalSource> bSource, bool reverseDirection = false,
           EncodingType encodingType = k4X);
 
-  ~Encoder() override;
-
   Encoder(Encoder&&) = default;
   Encoder& operator=(Encoder&&) = default;
+
+  ~Encoder() override = default;
 
   // CounterBase interface
   /**
@@ -168,7 +175,7 @@ class Encoder : public CounterBase,
    * @return Period in seconds of the most recent pulse.
    * @deprecated Use getRate() in favor of this method.
    */
-  WPI_DEPRECATED("Use GetRate() in favor of this method")
+  [[deprecated("Use GetRate() in favor of this method")]]
   units::second_t GetPeriod() const override;
 
   /**
@@ -186,9 +193,9 @@ class Encoder : public CounterBase,
    *             periods and SetMinRate() scales using value from
    *             SetDistancePerPulse().
    */
-  WPI_DEPRECATED(
+  [[deprecated(
       "Use SetMinRate() in favor of this method.  This takes unscaled periods "
-      "and SetMinRate() scales using value from SetDistancePerPulse().")
+      "and SetMinRate() scales using value from SetDistancePerPulse().")]]
   void SetMaxPeriod(units::second_t maxPeriod) override;
 
   /**
@@ -372,7 +379,7 @@ class Encoder : public CounterBase,
   std::shared_ptr<DigitalSource> m_aSource;  // The A phase of the quad encoder
   std::shared_ptr<DigitalSource> m_bSource;  // The B phase of the quad encoder
   std::shared_ptr<DigitalSource> m_indexSource = nullptr;
-  hal::Handle<HAL_EncoderHandle> m_encoder;
+  hal::Handle<HAL_EncoderHandle, HAL_FreeEncoder> m_encoder;
 
   friend class DigitalGlitchFilter;
 };

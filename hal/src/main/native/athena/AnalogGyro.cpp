@@ -4,10 +4,11 @@
 
 #include "hal/AnalogGyro.h"
 
+#include <cmath>
 #include <string>
 #include <thread>
 
-#include <fmt/format.h>
+#include <wpi/print.h>
 
 #include "AnalogInternal.h"
 #include "HALInitializer.h"
@@ -193,7 +194,7 @@ void HAL_CalibrateAnalogGyro(HAL_GyroHandle handle, int32_t* status) {
   if (*status != 0) {
     return;
   }
-  fmt::print("Calibrating analog gyro for {} seconds.\n",
+  wpi::print("Calibrating analog gyro for {} seconds.\n",
              kCalibrationSampleTime);
   Wait(kCalibrationSampleTime);
 
@@ -204,8 +205,8 @@ void HAL_CalibrateAnalogGyro(HAL_GyroHandle handle, int32_t* status) {
     return;
   }
 
-  gyro->center = static_cast<int32_t>(
-      static_cast<double>(value) / static_cast<double>(count) + 0.5);
+  gyro->center =
+      std::round(static_cast<double>(value) / static_cast<double>(count));
 
   gyro->offset = static_cast<double>(value) / static_cast<double>(count) -
                  static_cast<double>(gyro->center);

@@ -71,6 +71,20 @@ class Loop final : public std::enable_shared_from_this<Loop> {
   static std::shared_ptr<Loop> GetDefault();
 
   /**
+   * Set the loop closing flag.
+   *
+   * This will prevent new handles from being created on the loop.
+   */
+  void SetClosing() { m_closing = true; }
+
+  /**
+   * Return the loop closed flag.
+   *
+   * @return True if SetClosed() has been called.
+   */
+  bool IsClosing() const { return m_closing; }
+
+  /**
    * Release all internal loop resources.
    *
    * Call this function only when the loop has finished executing and all open
@@ -88,7 +102,7 @@ class Loop final : public std::enable_shared_from_this<Loop> {
    * * `Loop::kDefault`: Run the event loop until there are no
    *                     active and referenced handles or requests.
    * * `Loop::kOnce`: Run a single event loop iteration. Note that this
-   *                  function blocksif there are no pending callbacks.
+   *                  function blocks if there are no pending callbacks.
    * * `Loop::kNoWait`: Run a single event loop iteration, but don't block
    *                    if there are no pending callbacks.
    *
@@ -138,7 +152,7 @@ class Loop final : public std::enable_shared_from_this<Loop> {
    */
   std::pair<bool, Time> GetTimeout() const noexcept {
     auto to = uv_backend_timeout(m_loop);
-    return std::make_pair(to == -1, Time{to});
+    return std::pair{to == -1, Time{to}};
   }
 
   /**
@@ -247,6 +261,7 @@ class Loop final : public std::enable_shared_from_this<Loop> {
   uv_loop_t* m_loop;
   uv_loop_t m_loopStruct;
   std::atomic<std::thread::id> m_tid;
+  bool m_closing = false;
 };
 
 }  // namespace wpi::uv

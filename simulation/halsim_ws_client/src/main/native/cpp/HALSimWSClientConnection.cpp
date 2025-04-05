@@ -5,8 +5,10 @@
 #include "HALSimWSClientConnection.h"
 
 #include <cstdio>
+#include <string>
 
 #include <fmt/format.h>
+#include <wpi/print.h>
 #include <wpinet/raw_uv_ostream.h>
 
 #include "HALSimWS.h"
@@ -52,7 +54,7 @@ void HALSimWSClientConnection::Initialize() {
     } catch (const wpi::json::parse_error& e) {
       std::string err("JSON parse failed: ");
       err += e.what();
-      fmt::print(stderr, "{}\n", err);
+      wpi::print(stderr, "{}\n", err);
       m_websocket->Fail(1003, err);
       return;
     }
@@ -74,6 +76,17 @@ void HALSimWSClientConnection::OnSimValueChanged(const wpi::json& msg) {
   if (msg.empty()) {
     return;
   }
+
+  // Skip sending if this message is not in the allowed filter list
+  try {
+    auto& type = msg.at("type").get_ref<const std::string&>();
+    if (!m_client->CanSendMessage(type)) {
+      return;
+    }
+  } catch (wpi::json::exception& e) {
+    wpi::print(stderr, "Error with message: {}\n", e.what());
+  }
+
   wpi::SmallVector<uv::Buffer, 4> sendBufs;
   wpi::raw_uv_ostream os{sendBufs, [this]() -> uv::Buffer {
                            std::lock_guard lock(m_buffers_mutex);
@@ -92,7 +105,7 @@ void HALSimWSClientConnection::OnSimValueChanged(const wpi::json& msg) {
                                   }
 
                                   if (err) {
-                                    fmt::print(stderr, "{}\n", err.str());
+                                    wpi::print(stderr, "{}\n", err.str());
                                     std::fflush(stderr);
                                   }
                                 });

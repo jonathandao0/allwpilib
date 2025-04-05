@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_NAMESPACE_ALIAS_HPP_INCLUDED
 #define WPI_MEMORY_NAMESPACE_ALIAS_HPP_INCLUDED
@@ -8,13 +7,18 @@
 /// \file
 /// Convenient namespace alias.
 
-/// \defgroup core Core components
+/// \defgroup memory Memory Allocator Library
+/// @{
 
-/// \defgroup allocator Allocator implementations
+/// \defgroup memory_core Core components
 
-/// \defgroup adapter Adapters and Wrappers
+/// \defgroup memory_allocator Allocator implementations
 
-/// \defgroup storage Allocator storage
+/// \defgroup memory_adapter Adapters and Wrappers
+
+/// \defgroup memory_storage Allocator storage
+
+/// @}
 
 /// \namespace wpi
 /// Foonathan namespace.
@@ -33,5 +37,5 @@ namespace wpi
 } // namespace wpi
 
 namespace memory = wpi::memory;
-
+///@}
 #endif // WPI_MEMORY_NAMESPACE_ALIAS_HPP_INCLUDED

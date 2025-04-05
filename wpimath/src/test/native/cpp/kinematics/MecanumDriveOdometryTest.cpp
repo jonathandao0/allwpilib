@@ -5,9 +5,10 @@
 #include <limits>
 #include <random>
 
+#include <gtest/gtest.h>
+
 #include "frc/kinematics/MecanumDriveOdometry.h"
 #include "frc/trajectory/TrajectoryGenerator.h"
-#include "gtest/gtest.h"
 
 using namespace frc;
 
@@ -84,7 +85,7 @@ TEST_F(MecanumDriveOdometryTest, AccuracyFacingTrajectory) {
   frc::MecanumDriveWheelPositions wheelPositions;
 
   frc::MecanumDriveOdometry odometry{kinematics, frc::Rotation2d{},
-                                     wheelPositions, frc::Pose2d{}};
+                                     wheelPositions};
 
   frc::Trajectory trajectory = frc::TrajectoryGenerator::GenerateTrajectory(
       std::vector{frc::Pose2d{0_m, 0_m, 45_deg}, frc::Pose2d{3_m, 0_m, -90_deg},
@@ -96,7 +97,7 @@ TEST_F(MecanumDriveOdometryTest, AccuracyFacingTrajectory) {
   std::default_random_engine generator;
   std::normal_distribution<double> distribution(0.0, 1.0);
 
-  units::second_t dt = 0.02_s;
+  units::second_t dt = 20_ms;
   units::second_t t = 0_s;
 
   double maxError = -std::numeric_limits<double>::max();
@@ -147,7 +148,7 @@ TEST_F(MecanumDriveOdometryTest, AccuracyFacingXAxis) {
   frc::MecanumDriveWheelPositions wheelPositions;
 
   frc::MecanumDriveOdometry odometry{kinematics, frc::Rotation2d{},
-                                     wheelPositions, frc::Pose2d{}};
+                                     wheelPositions};
 
   frc::Trajectory trajectory = frc::TrajectoryGenerator::GenerateTrajectory(
       std::vector{frc::Pose2d{0_m, 0_m, 45_deg}, frc::Pose2d{3_m, 0_m, -90_deg},
@@ -159,7 +160,7 @@ TEST_F(MecanumDriveOdometryTest, AccuracyFacingXAxis) {
   std::default_random_engine generator;
   std::normal_distribution<double> distribution(0.0, 1.0);
 
-  units::second_t dt = 0.02_s;
+  units::second_t dt = 20_ms;
   units::second_t t = 0_s;
 
   double maxError = -std::numeric_limits<double>::max();

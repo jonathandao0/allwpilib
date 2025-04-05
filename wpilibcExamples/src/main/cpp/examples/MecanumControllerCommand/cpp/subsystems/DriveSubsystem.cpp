@@ -30,6 +30,11 @@ DriveSubsystem::DriveSubsystem()
 
       m_odometry{kDriveKinematics, m_gyro.GetRotation2d(),
                  getCurrentWheelDistances(), frc::Pose2d{}} {
+  wpi::SendableRegistry::AddChild(&m_drive, &m_frontLeft);
+  wpi::SendableRegistry::AddChild(&m_drive, &m_rearLeft);
+  wpi::SendableRegistry::AddChild(&m_drive, &m_frontRight);
+  wpi::SendableRegistry::AddChild(&m_drive, &m_rearRight);
+
   // Set the distance per pulse for the encoders
   m_frontLeftEncoder.SetDistancePerPulse(kEncoderDistancePerPulse);
   m_rearLeftEncoder.SetDistancePerPulse(kEncoderDistancePerPulse);
@@ -50,9 +55,9 @@ void DriveSubsystem::Periodic() {
 void DriveSubsystem::Drive(double xSpeed, double ySpeed, double rot,
                            bool fieldRelative) {
   if (fieldRelative) {
-    m_drive.DriveCartesian(ySpeed, xSpeed, rot, m_gyro.GetRotation2d());
+    m_drive.DriveCartesian(xSpeed, ySpeed, rot, m_gyro.GetRotation2d());
   } else {
-    m_drive.DriveCartesian(ySpeed, xSpeed, rot);
+    m_drive.DriveCartesian(xSpeed, ySpeed, rot);
   }
 }
 

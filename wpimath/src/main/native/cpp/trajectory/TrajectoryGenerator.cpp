@@ -5,8 +5,9 @@
 #include "frc/trajectory/TrajectoryGenerator.h"
 
 #include <utility>
+#include <vector>
 
-#include <fmt/format.h>
+#include <wpi/print.h>
 
 #include "frc/spline/SplineHelper.h"
 #include "frc/spline/SplineParameterizer.h"
@@ -22,7 +23,7 @@ void TrajectoryGenerator::ReportError(const char* error) {
   if (s_errorFunc) {
     s_errorFunc(error);
   } else {
-    fmt::print(stderr, "TrajectoryGenerator error: {}\n", error);
+    wpi::print(stderr, "TrajectoryGenerator error: {}\n", error);
   }
 }
 
@@ -121,8 +122,8 @@ Trajectory TrajectoryGenerator::GenerateTrajectory(
 
   std::vector<SplineParameterizer::PoseWithCurvature> points;
   try {
-    points = SplinePointsFromSplines(
-        SplineHelper::QuinticSplinesFromWaypoints(newWaypoints));
+    points = SplinePointsFromSplines(SplineHelper::OptimizeCurvature(
+        SplineHelper::QuinticSplinesFromWaypoints(newWaypoints)));
   } catch (SplineParameterizer::MalformedSplineException& e) {
     ReportError(e.what());
     return kDoNothingTrajectory;

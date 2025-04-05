@@ -29,17 +29,17 @@ AddressableLED::AddressableLED(int port) : m_port{port} {
   m_handle = HAL_InitializeAddressableLED(m_pwmHandle, &status);
   FRC_CheckErrorStatus(status, "Port {}", port);
   if (m_handle == HAL_kInvalidHandle) {
-    HAL_FreePWMPort(m_pwmHandle, &status);
+    HAL_FreePWMPort(m_pwmHandle);
   }
 
   HAL_Report(HALUsageReporting::kResourceType_AddressableLEDs, port + 1);
 }
 
-AddressableLED::~AddressableLED() {
-  HAL_FreeAddressableLED(m_handle);
+void AddressableLED::SetColorOrder(AddressableLED::ColorOrder order) {
   int32_t status = 0;
-  HAL_FreePWMPort(m_pwmHandle, &status);
-  FRC_ReportError(status, "Port {}", m_port);
+  HAL_SetAddressableLEDColorOrder(
+      m_handle, static_cast<HAL_AddressableLEDColorOrder>(order), &status);
+  FRC_CheckErrorStatus(status, "Port {} Color order {}", m_port, order);
 }
 
 void AddressableLED::SetLength(int length) {
@@ -65,14 +65,14 @@ void AddressableLED::SetData(std::initializer_list<LEDData> ledData) {
   FRC_CheckErrorStatus(status, "Port {}", m_port);
 }
 
-void AddressableLED::SetBitTiming(units::nanosecond_t lowTime0,
-                                  units::nanosecond_t highTime0,
-                                  units::nanosecond_t lowTime1,
-                                  units::nanosecond_t highTime1) {
+void AddressableLED::SetBitTiming(units::nanosecond_t highTime0,
+                                  units::nanosecond_t lowTime0,
+                                  units::nanosecond_t highTime1,
+                                  units::nanosecond_t lowTime1) {
   int32_t status = 0;
   HAL_SetAddressableLEDBitTiming(
-      m_handle, lowTime0.to<int32_t>(), highTime0.to<int32_t>(),
-      lowTime1.to<int32_t>(), highTime1.to<int32_t>(), &status);
+      m_handle, highTime0.to<int32_t>(), lowTime0.to<int32_t>(),
+      highTime1.to<int32_t>(), lowTime1.to<int32_t>(), &status);
   FRC_CheckErrorStatus(status, "Port {}", m_port);
 }
 

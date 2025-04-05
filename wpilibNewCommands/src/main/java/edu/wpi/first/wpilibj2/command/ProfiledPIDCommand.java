@@ -8,7 +8,6 @@ import static edu.wpi.first.math.trajectory.TrapezoidProfile.State;
 import static edu.wpi.first.util.ErrorMessages.requireNonNullParam;
 
 import edu.wpi.first.math.controller.ProfiledPIDController;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
@@ -19,11 +18,21 @@ import java.util.function.Supplier;
  * output are performed synchronously in the command's execute() method.
  *
  * <p>This class is provided by the NewCommands VendorDep
+ *
+ * @deprecated Use a ProfiledPIDController instead
  */
-public class ProfiledPIDCommand extends CommandBase {
+@Deprecated(forRemoval = true, since = "2025")
+public class ProfiledPIDCommand extends Command {
+  /** Profiled PID controller. */
   protected final ProfiledPIDController m_controller;
+
+  /** Measurement getter. */
   protected DoubleSupplier m_measurement;
+
+  /** Goal getter. */
   protected Supplier<State> m_goal;
+
+  /** Profiled PID controller output consumer. */
   protected BiConsumer<Double, State> m_useOutput;
 
   /**
@@ -36,6 +45,7 @@ public class ProfiledPIDCommand extends CommandBase {
    * @param useOutput the controller's output
    * @param requirements the subsystems required by this command
    */
+  @SuppressWarnings("this-escape")
   public ProfiledPIDCommand(
       ProfiledPIDController controller,
       DoubleSupplier measurementSource,
@@ -51,7 +61,7 @@ public class ProfiledPIDCommand extends CommandBase {
     m_useOutput = useOutput;
     m_measurement = measurementSource;
     m_goal = goalSource;
-    m_requirements.addAll(Set.of(requirements));
+    addRequirements(requirements);
   }
 
   /**
@@ -64,6 +74,7 @@ public class ProfiledPIDCommand extends CommandBase {
    * @param useOutput the controller's output
    * @param requirements the subsystems required by this command
    */
+  @SuppressWarnings("this-escape")
   public ProfiledPIDCommand(
       ProfiledPIDController controller,
       DoubleSupplier measurementSource,
@@ -79,7 +90,7 @@ public class ProfiledPIDCommand extends CommandBase {
     m_useOutput = useOutput;
     m_measurement = measurementSource;
     m_goal = () -> new State(goalSource.getAsDouble(), 0);
-    m_requirements.addAll(Set.of(requirements));
+    addRequirements(requirements);
   }
 
   /**

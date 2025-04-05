@@ -32,13 +32,18 @@ class RawSinkImpl : public SinkImpl {
 
   void Stop();
 
-  uint64_t GrabFrame(CS_RawFrame& frame);
-  uint64_t GrabFrame(CS_RawFrame& frame, double timeout);
+  uint64_t GrabFrame(WPI_RawFrame& frame);
+  uint64_t GrabFrame(WPI_RawFrame& frame, double timeout);
+  // Wait for a frame with a time other than lastFrameTime
+  uint64_t GrabFrame(WPI_RawFrame& frame, double timeout,
+                     uint64_t lastFrameTime);
 
  private:
   void ThreadMain();
 
-  uint64_t GrabFrameImpl(CS_RawFrame& rawFrame, Frame& incomingFrame);
+  // Copies the image from incomingFrame into rawFrame, converting where
+  // necessary to the resolution of rawFrame
+  uint64_t GrabFrameImpl(WPI_RawFrame& rawFrame, Frame& incomingFrame);
 
   std::atomic_bool m_active;  // set to false to terminate threads
   std::thread m_thread;

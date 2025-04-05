@@ -4,8 +4,11 @@
 
 #include "ConnectionList.h"
 
+#include <string>
+#include <vector>
+
 #include <wpi/SmallVector.h>
-#include <wpi/json_serializer.h>
+#include <wpi/json.h>
 #include <wpi/raw_ostream.h>
 
 #include "IListenerStorage.h"

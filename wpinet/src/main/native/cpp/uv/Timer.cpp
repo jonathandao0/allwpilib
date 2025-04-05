@@ -4,11 +4,18 @@
 
 #include "wpinet/uv/Timer.h"
 
+#include <functional>
+#include <memory>
+#include <utility>
+
 #include "wpinet/uv/Loop.h"
 
 namespace wpi::uv {
 
 std::shared_ptr<Timer> Timer::Create(Loop& loop) {
+  if (loop.IsClosing()) {
+    return nullptr;
+  }
   auto h = std::make_shared<Timer>(private_init{});
   int err = uv_timer_init(loop.GetRaw(), h->GetRaw());
   if (err < 0) {
@@ -32,6 +39,9 @@ void Timer::SingleShot(Loop& loop, Time timeout, std::function<void()> func) {
 }
 
 void Timer::Start(Time timeout, Time repeat) {
+  if (IsLoopClosing()) {
+    return;
+  }
   Invoke(
       &uv_timer_start, GetRaw(),
       [](uv_timer_t* handle) {

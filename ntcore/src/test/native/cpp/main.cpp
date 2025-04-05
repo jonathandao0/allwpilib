@@ -3,11 +3,15 @@
 // the WPILib BSD license file in the root directory of this project.
 
 #include <climits>
+#include <cstdio>
+
+#include <wpi/timestamp.h>
 
 #include "gmock/gmock.h"
 #include "ntcore.h"
 
 int main(int argc, char** argv) {
+  wpi::impl::SetupNowDefaultOnRio();
   nt::AddLogger(nt::GetDefaultInstance(), 0, UINT_MAX, [](auto& event) {
     if (auto msg = event.GetLogMessage()) {
       std::fputs(msg->message.c_str(), stderr);

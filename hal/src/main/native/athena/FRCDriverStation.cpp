@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -43,6 +44,7 @@ struct JoystickDataCache {
   HAL_JoystickButtons buttons[HAL_kMaxJoysticks];
   HAL_AllianceStationID allianceStation;
   float matchTime;
+  HAL_ControlWord controlWord;
 };
 static_assert(std::is_standard_layout_v<JoystickDataCache>);
 // static_assert(std::is_trivial_v<JoystickDataCache>);
@@ -101,9 +103,14 @@ void JoystickDataCache::Update() {
     HAL_GetJoystickPOVsInternal(i, &povs[i]);
     HAL_GetJoystickButtonsInternal(i, &buttons[i]);
   }
-  FRC_NetworkCommunication_getAllianceStation(
-      reinterpret_cast<AllianceStationID_t*>(&allianceStation));
+  AllianceStationID_t alliance = kAllianceStationID_red1;
+  FRC_NetworkCommunication_getAllianceStation(&alliance);
+  int allianceInt = alliance;
+  allianceInt += 1;
+  allianceStation = static_cast<HAL_AllianceStationID>(allianceInt);
   FRC_NetworkCommunication_getMatchTime(&matchTime);
+  FRC_NetworkCommunication_getControlWord(
+      reinterpret_cast<ControlWord_t*>(&controlWord));
 }
 
 #define CHECK_JOYSTICK_NUMBER(stickNum)                  \
@@ -114,7 +121,7 @@ static HAL_ControlWord newestControlWord;
 static JoystickDataCache caches[3];
 static JoystickDataCache* currentRead = &caches[0];
 static JoystickDataCache* currentReadLocal = &caches[0];
-static std::atomic<JoystickDataCache*> currentCache{&caches[1]};
+static std::atomic<JoystickDataCache*> currentCache{nullptr};
 static JoystickDataCache* lastGiven = &caches[1];
 static JoystickDataCache* cacheToUpdate = &caches[2];
 
@@ -175,9 +182,10 @@ static int32_t HAL_GetMatchInfoInternal(HAL_MatchInfo* info) {
 namespace {
 struct TcpCache {
   TcpCache() { std::memset(this, 0, sizeof(*this)); }
-  void Update(uint32_t mask);
+  bool Update(uint32_t mask);
   void CloneTo(TcpCache* other) { std::memcpy(other, this, sizeof(*this)); }
 
+  bool hasReadMatchInfo = false;
   HAL_MatchInfo matchInfo;
   HAL_JoystickDescriptor descriptors[HAL_kMaxJoysticks];
 };
@@ -193,15 +201,25 @@ constexpr uint32_t combinedMatchInfoMask = kTcpRecvMask_MatchInfoOld |
                                            kTcpRecvMask_MatchInfo |
                                            kTcpRecvMask_GameSpecific;
 
-void TcpCache::Update(uint32_t mask) {
+bool TcpCache::Update(uint32_t mask) {
+  bool failedToReadInfo = false;
   if ((mask & combinedMatchInfoMask) != 0) {
-    HAL_GetMatchInfoInternal(&matchInfo);
+    int status = HAL_GetMatchInfoInternal(&matchInfo);
+    if (status != 0) {
+      failedToReadInfo = true;
+      if (!hasReadMatchInfo) {
+        std::memset(&matchInfo, 0, sizeof(matchInfo));
+      }
+    } else {
+      hasReadMatchInfo = true;
+    }
   }
   for (int i = 0; i < HAL_kMaxJoysticks; i++) {
     if ((mask & (1 << i)) != 0) {
       HAL_GetJoystickDescriptorInternal(i, &descriptors[i]);
     }
   }
+  return failedToReadInfo;
 }
 
 namespace hal::init {
@@ -255,10 +273,10 @@ int32_t HAL_SendError(HAL_Bool isError, int32_t errorCode, HAL_Bool isLVCode,
     std::string_view locationRef{location};
     std::string_view callStackRef{callStack};
 
-    // 1 tag, 4 timestamp, 2 seqnum
+    // 2 size, 1 tag, 4 timestamp, 2 seqnum
     // 2 numOccur, 4 error code, 1 flags, 6 strlen
     // 1 extra needed for padding on Netcomm end.
-    size_t baseLength = 21;
+    size_t baseLength = 23;
 
     if (baseLength + detailsRef.size() + locationRef.size() +
             callStackRef.size() <=
@@ -407,22 +425,15 @@ int32_t HAL_GetJoystickType(int32_t joystickNum) {
   }
 }
 
-char* HAL_GetJoystickName(int32_t joystickNum) {
+void HAL_GetJoystickName(struct WPI_String* name, int32_t joystickNum) {
   HAL_JoystickDescriptor joystickDesc;
+  const char* cName = joystickDesc.name;
   if (HAL_GetJoystickDescriptor(joystickNum, &joystickDesc) < 0) {
-    char* name = static_cast<char*>(std::malloc(1));
-    name[0] = '\0';
-    return name;
-  } else {
-    const size_t len = std::strlen(joystickDesc.name) + 1;
-    char* name = static_cast<char*>(std::malloc(len));
-    std::memcpy(name, joystickDesc.name, len);
-    return name;
+    cName = "";
   }
-}
-
-void HAL_FreeJoystickName(char* name) {
-  std::free(name);
+  auto len = std::strlen(cName);
+  auto write = WPI_AllocateString(name, len);
+  std::memcpy(write, cName, len);
 }
 
 int32_t HAL_GetJoystickAxisType(int32_t joystickNum, int32_t axis) {
@@ -508,24 +519,53 @@ static void newDataOccur(uint32_t refNum) {
   }
 }
 
-void HAL_RefreshDSData(void) {
+HAL_Bool HAL_RefreshDSData(void) {
   HAL_ControlWord controlWord;
   std::memset(&controlWord, 0, sizeof(controlWord));
   FRC_NetworkCommunication_getControlWord(
       reinterpret_cast<ControlWord_t*>(&controlWord));
-  std::scoped_lock lock{cacheMutex};
-  JoystickDataCache* prev = currentCache.exchange(nullptr);
-  if (prev != nullptr) {
-    currentRead = prev;
+  JoystickDataCache* prev;
+  {
+    std::scoped_lock lock{cacheMutex};
+    prev = currentCache.exchange(nullptr);
+    if (prev != nullptr) {
+      currentRead = prev;
+    }
+    // If newest state shows we have a DS attached, just use the
+    // control word out of the cache, As it will be the one in sync
+    // with the data. If no data has been updated, at this point,
+    // and a DS wasn't attached previously, this will still return
+    // a zeroed out control word, with is the correct state for
+    // no new data.
+    if (!controlWord.dsAttached) {
+      // If the DS is not attached, we need to zero out the control word.
+      // This is because HAL_RefreshDSData is called asynchronously from
+      // the DS data. The dsAttached variable comes directly from netcomm
+      // and could be updated before the caches are. If that happens,
+      // we would end up returning the previous cached control word,
+      // which is out of sync with the current control word and could
+      // break invariants such as which alliance station is in used.
+      // Also, when the DS has never been connected the rest of the fields
+      // in control word are garbage, so we also need to zero out in that
+      // case too
+      std::memset(&currentRead->controlWord, 0,
+                  sizeof(currentRead->controlWord));
+    }
+    newestControlWord = currentRead->controlWord;
   }
-  newestControlWord = controlWord;
 
   uint32_t mask = tcpMask.exchange(0);
   if (mask != 0) {
-    tcpCache.Update(mask);
+    bool failedToReadMatchInfo = tcpCache.Update(mask);
+    if (failedToReadMatchInfo) {
+      // If we failed to read match info
+      // we want to try again next iteration
+      tcpMask.fetch_or(combinedMatchInfoMask);
+    }
     std::scoped_lock tcpLock(tcpCacheMutex);
     tcpCache.CloneTo(&tcpCurrent);
   }
+  return prev != nullptr;
 }
 
 void HAL_ProvideNewDataEventHandle(WPI_EventHandle handle) {
@@ -550,5 +590,14 @@ void InitializeDriverStation() {
   // Set up our occur reference number
   setNewDataOccurRef(refNumber);
   FRC_NetworkCommunication_setNewTcpDataOccurRef(tcpRefNumber);
+}
+
+void WaitForInitialPacket() {
+  wpi::Event waitForInitEvent;
+  driverStation->newDataEvents.Add(waitForInitEvent.GetHandle());
+  bool timed_out = false;
+  wpi::WaitForObject(waitForInitEvent.GetHandle(), 0.1, &timed_out);
+  // Don't care what the result is, just want to give it a chance.
+  driverStation->newDataEvents.Remove(waitForInitEvent.GetHandle());
 }
 }  // namespace hal

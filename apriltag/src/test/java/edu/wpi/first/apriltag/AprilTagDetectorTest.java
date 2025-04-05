@@ -29,17 +29,17 @@ class AprilTagDetectorTest {
   @SuppressWarnings("MemberName")
   AprilTagDetector detector;
 
-  static RuntimeLoader<Core> loader;
-
   @BeforeAll
   static void beforeAll() {
     try {
-      loader =
-          new RuntimeLoader<>(
-              Core.NATIVE_LIBRARY_NAME, RuntimeLoader.getDefaultExtractionRoot(), Core.class);
-      loader.loadLibrary();
-    } catch (IOException ex) {
-      fail(ex);
+      RuntimeLoader.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+    } catch (IOException e) {
+      try {
+        // Try adding a debug postfix
+        RuntimeLoader.loadLibrary(Core.NATIVE_LIBRARY_NAME + "d");
+      } catch (IOException ex) {
+        fail(ex);
+      }
     }
   }
 
@@ -91,11 +91,6 @@ class AprilTagDetectorTest {
   }
 
   @Test
-  void testAdd25h9() {
-    assertDoesNotThrow(() -> detector.addFamily("tag25h9"));
-  }
-
-  @Test
   void testAdd36h11() {
     assertDoesNotThrow(() -> detector.addFamily("tag36h11"));
   }
@@ -137,6 +132,34 @@ class AprilTagDetectorTest {
   }
 
   @Test
+  void testDecodeCropped() {
+    detector.addFamily("tag16h5");
+    detector.addFamily("tag36h11");
+
+    Mat image;
+    try {
+      image = loadImage("tag1_640_480.jpg");
+    } catch (IOException ex) {
+      fail(ex);
+      return;
+    }
+
+    // Pre-knowledge -- the tag is within this ROI of this particular test image
+    var cropped = image.submat(100, 400, 220, 570);
+
+    try {
+      AprilTagDetection[] results = detector.detect(cropped);
+      assertEquals(1, results.length);
+      assertEquals("tag36h11", results[0].getFamily());
+      assertEquals(1, results[0].getId());
+      assertEquals(0, results[0].getHamming());
+    } finally {
+      cropped.release();
+      image.release();
+    }
+  }
+
+  @Test
   void testDecodeAndPose() {
     detector.addFamily("tag16h5");
     detector.addFamily("tag36h11");
@@ -157,8 +180,8 @@ class AprilTagDetectorTest {
 
       var estimator =
           new AprilTagPoseEstimator(new AprilTagPoseEstimator.Config(0.2, 500, 500, 320, 240));
-      AprilTagPoseEstimate est = estimator.estimateOrthogonalIteration(results[0], 50);
-      assertEquals(new Transform3d(), est.pose2);
+      AprilTagPoseEstimate est = estimator.estimateOrthogonalIteration(results[0], 200);
+      assertEquals(Transform3d.kZero, est.pose2);
       Transform3d pose = estimator.estimate(results[0]);
       assertEquals(est.pose1, pose);
     } finally {
@@ -189,7 +212,7 @@ class AprilTagDetectorTest {
           new AprilTagPoseEstimator(
               new AprilTagPoseEstimator.Config(
                   0.2, 500, 500, image.cols() / 2.0, image.rows() / 2.0));
-      AprilTagPoseEstimate est = estimator.estimateOrthogonalIteration(results[0], 50);
+      AprilTagPoseEstimate est = estimator.estimateOrthogonalIteration(results[0], 200);
 
       assertEquals(Units.degreesToRadians(45), est.pose1.getRotation().getX(), 0.1);
       assertEquals(Units.degreesToRadians(0), est.pose1.getRotation().getY(), 0.1);
@@ -222,7 +245,7 @@ class AprilTagDetectorTest {
           new AprilTagPoseEstimator(
               new AprilTagPoseEstimator.Config(
                   0.2, 500, 500, image.cols() / 2.0, image.rows() / 2.0));
-      AprilTagPoseEstimate est = estimator.estimateOrthogonalIteration(results[0], 50);
+      AprilTagPoseEstimate est = estimator.estimateOrthogonalIteration(results[0], 200);
 
       assertEquals(Units.degreesToRadians(0), est.pose1.getRotation().getX(), 0.1);
       assertEquals(Units.degreesToRadians(45), est.pose1.getRotation().getY(), 0.1);
@@ -252,7 +275,7 @@ class AprilTagDetectorTest {
           new AprilTagPoseEstimator(
               new AprilTagPoseEstimator.Config(
                   0.2, 500, 500, image.cols() / 2.0, image.rows() / 2.0));
-      AprilTagPoseEstimate est = estimator.estimateOrthogonalIteration(results[0], 50);
+      AprilTagPoseEstimate est = estimator.estimateOrthogonalIteration(results[0], 200);
 
       assertEquals(Units.degreesToRadians(0), est.pose1.getRotation().getX(), 0.1);
       assertEquals(Units.degreesToRadians(0), est.pose1.getRotation().getY(), 0.1);

@@ -4,6 +4,9 @@
 
 package edu.wpi.first.wpilibj2.command;
 
+import java.util.Set;
+import java.util.function.Supplier;
+
 /**
  * A robot subsystem. Subsystems are the basic unit of robot organization in the Command-based
  * framework; they encapsulate low-level hardware objects (motor controllers, sensors, etc.) and
@@ -38,6 +41,15 @@ public interface Subsystem {
   default void simulationPeriodic() {}
 
   /**
+   * Gets the subsystem name of this Subsystem.
+   *
+   * @return Subsystem name
+   */
+  default String getName() {
+    return this.getClass().getSimpleName();
+  }
+
+  /**
    * Sets the default {@link Command} of the subsystem. The default command will be automatically
    * scheduled when no other commands are scheduled that require the subsystem. Default commands
    * should generally not end on their own, i.e. their {@link Command#isFinished()} method should
@@ -48,6 +60,14 @@ public interface Subsystem {
    */
   default void setDefaultCommand(Command defaultCommand) {
     CommandScheduler.getInstance().setDefaultCommand(this, defaultCommand);
+  }
+
+  /**
+   * Removes the default command for the subsystem. This will not cancel the default command if it
+   * is currently running.
+   */
+  default void removeDefaultCommand() {
+    CommandScheduler.getInstance().removeDefaultCommand(this);
   }
 
   /**
@@ -85,7 +105,7 @@ public interface Subsystem {
    * @return the command
    * @see InstantCommand
    */
-  default CommandBase runOnce(Runnable action) {
+  default Command runOnce(Runnable action) {
     return Commands.runOnce(action, this);
   }
 
@@ -97,7 +117,7 @@ public interface Subsystem {
    * @return the command
    * @see RunCommand
    */
-  default CommandBase run(Runnable action) {
+  default Command run(Runnable action) {
     return Commands.run(action, this);
   }
 
@@ -110,7 +130,7 @@ public interface Subsystem {
    * @return the command
    * @see StartEndCommand
    */
-  default CommandBase startEnd(Runnable start, Runnable end) {
+  default Command startEnd(Runnable start, Runnable end) {
     return Commands.startEnd(start, end, this);
   }
 
@@ -122,7 +142,31 @@ public interface Subsystem {
    * @param end the action to run on interrupt
    * @return the command
    */
-  default CommandBase runEnd(Runnable run, Runnable end) {
+  default Command runEnd(Runnable run, Runnable end) {
     return Commands.runEnd(run, end, this);
+  }
+
+  /**
+   * Constructs a command that runs an action once and then runs another action every iteration
+   * until interrupted. Requires this subsystem.
+   *
+   * @param start the action to run on start
+   * @param run the action to run every iteration
+   * @return the command
+   */
+  default Command startRun(Runnable start, Runnable run) {
+    return Commands.startRun(start, run, this);
+  }
+
+  /**
+   * Constructs a {@link DeferredCommand} with the provided supplier. This subsystem is added as a
+   * requirement.
+   *
+   * @param supplier the command supplier.
+   * @return the command.
+   * @see DeferredCommand
+   */
+  default Command defer(Supplier<Command> supplier) {
+    return Commands.defer(supplier, Set.of(this));
   }
 }

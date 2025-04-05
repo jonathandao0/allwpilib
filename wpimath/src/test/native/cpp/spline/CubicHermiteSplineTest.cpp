@@ -5,12 +5,13 @@
 #include <chrono>
 #include <vector>
 
+#include <gtest/gtest.h>
+
 #include "frc/geometry/Pose2d.h"
 #include "frc/geometry/Rotation2d.h"
 #include "frc/spline/QuinticHermiteSpline.h"
 #include "frc/spline/SplineHelper.h"
 #include "frc/spline/SplineParameterizer.h"
-#include "gtest/gtest.h"
 #include "units/length.h"
 
 using namespace frc;
@@ -20,9 +21,6 @@ class CubicHermiteSplineTest : public ::testing::Test {
  protected:
   static void Run(const Pose2d& a, const std::vector<Translation2d>& waypoints,
                   const Pose2d& b) {
-    // Start the timer.
-    const auto start = std::chrono::high_resolution_clock::now();
-
     // Generate and parameterize the spline.
 
     const auto [startCV, endCV] =
@@ -32,19 +30,12 @@ class CubicHermiteSplineTest : public ::testing::Test {
         SplineHelper::CubicSplinesFromControlVectors(startCV, waypoints, endCV);
     std::vector<Spline<3>::PoseWithCurvature> poses;
 
-    poses.push_back(splines[0].GetPoint(0.0));
+    poses.push_back(splines[0].GetPoint(0.0).value());
 
     for (auto&& spline : splines) {
       auto x = SplineParameterizer::Parameterize(spline);
       poses.insert(std::end(poses), std::begin(x) + 1, std::end(x));
     }
-
-    // End timer.
-    const auto finish = std::chrono::high_resolution_clock::now();
-
-    // Calculate the duration (used when benchmarking)
-    const auto duration =
-        std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
 
     for (unsigned int i = 0; i < poses.size() - 1; i++) {
       auto& p0 = poses[i];
@@ -86,8 +77,6 @@ class CubicHermiteSplineTest : public ::testing::Test {
     EXPECT_NEAR(poses.back().first.Y().value(), b.Y().value(), 1E-9);
     EXPECT_NEAR(poses.back().first.Rotation().Radians().value(),
                 b.Rotation().Radians().value(), 1E-9);
-
-    static_cast<void>(duration);
   }
 };
 }  // namespace frc

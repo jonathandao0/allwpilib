@@ -4,7 +4,14 @@
 
 package edu.wpi.first.math;
 
+import edu.wpi.first.math.jni.EigenJNI;
 import edu.wpi.first.math.numbers.N1;
+import edu.wpi.first.math.proto.MatrixProto;
+import edu.wpi.first.math.struct.MatrixStruct;
+import edu.wpi.first.util.protobuf.Protobuf;
+import edu.wpi.first.util.protobuf.ProtobufSerializable;
+import edu.wpi.first.util.struct.Struct;
+import edu.wpi.first.util.struct.StructSerializable;
 import java.util.Objects;
 import org.ejml.MatrixDimensionException;
 import org.ejml.data.DMatrixRMaj;
@@ -23,7 +30,9 @@ import org.ejml.simple.SimpleMatrix;
  * @param <R> The number of rows in this matrix.
  * @param <C> The number of columns in this matrix.
  */
-public class Matrix<R extends Num, C extends Num> {
+public class Matrix<R extends Num, C extends Num>
+    implements ProtobufSerializable, StructSerializable {
+  /** Storage for underlying EJML matrix. */
   protected final SimpleMatrix m_storage;
 
   /**
@@ -36,6 +45,18 @@ public class Matrix<R extends Num, C extends Num> {
     this.m_storage =
         new SimpleMatrix(
             Objects.requireNonNull(rows).getNum(), Objects.requireNonNull(columns).getNum());
+  }
+
+  /**
+   * Constructs a new {@link Matrix} with the given storage. Caller should make sure that the
+   * provided generic bounds match the shape of the provided {@link Matrix}.
+   *
+   * @param rows The number of rows of the matrix.
+   * @param columns The number of columns of the matrix.
+   * @param storage The double array to back this value.
+   */
+  public Matrix(Nat<R> rows, Nat<C> columns, double[] storage) {
+    this.m_storage = new SimpleMatrix(rows.getNum(), columns.getNum(), true, storage);
   }
 
   /**
@@ -80,7 +101,7 @@ public class Matrix<R extends Num, C extends Num> {
    * @return The number of columns, according to the internal storage.
    */
   public final int getNumCols() {
-    return this.m_storage.numCols();
+    return this.m_storage.getNumCols();
   }
 
   /**
@@ -89,7 +110,7 @@ public class Matrix<R extends Num, C extends Num> {
    * @return The number of rows, according to the internal storage.
    */
   public final int getNumRows() {
-    return this.m_storage.numRows();
+    return this.m_storage.getNumRows();
   }
 
   /**
@@ -188,7 +209,7 @@ public class Matrix<R extends Num, C extends Num> {
    * @return The mean value of this matrix.
    */
   public final double mean() {
-    return this.elementSum() / (double) this.m_storage.getNumElements();
+    return this.elementSum() / this.m_storage.getNumElements();
   }
 
   /**
@@ -222,7 +243,7 @@ public class Matrix<R extends Num, C extends Num> {
    *
    * <p>c<sub>i,j</sub> = a<sub>i,j</sub>*other<sub>i,j</sub>
    *
-   * @param other The other {@link Matrix} to preform element multiplication on.
+   * @param other The other {@link Matrix} to perform element multiplication on.
    * @return The element by element multiplication of "this" and other.
    */
   public final Matrix<R, C> elementTimes(Matrix<R, C> other) {
@@ -276,7 +297,7 @@ public class Matrix<R extends Num, C extends Num> {
    * @return The resultant matrix.
    */
   public Matrix<R, C> div(int value) {
-    return new Matrix<>(this.m_storage.divide((double) value));
+    return new Matrix<>(this.m_storage.divide(value));
   }
 
   /**
@@ -347,7 +368,7 @@ public class Matrix<R extends Num, C extends Num> {
   public final <R2 extends Num, C2 extends Num> Matrix<C, C2> solveFullPivHouseholderQr(
       Matrix<R2, C2> other) {
     Matrix<C, C2> solution = new Matrix<>(new SimpleMatrix(this.getNumCols(), other.getNumCols()));
-    WPIMathJNI.solveFullPivHouseholderQr(
+    EigenJNI.solveFullPivHouseholderQr(
         this.getData(),
         this.getNumRows(),
         this.getNumCols(),
@@ -374,7 +395,7 @@ public class Matrix<R extends Num, C extends Num> {
               + this.getNumCols());
     }
     Matrix<R, C> toReturn = new Matrix<>(new SimpleMatrix(this.getNumRows(), this.getNumCols()));
-    WPIMathJNI.exp(
+    EigenJNI.exp(
         this.m_storage.getDDRM().getData(),
         this.getNumRows(),
         toReturn.m_storage.getDDRM().getData());
@@ -398,7 +419,7 @@ public class Matrix<R extends Num, C extends Num> {
               + this.getNumCols());
     }
     Matrix<R, C> toReturn = new Matrix<>(new SimpleMatrix(this.getNumRows(), this.getNumCols()));
-    WPIMathJNI.pow(
+    EigenJNI.pow(
         this.m_storage.getDDRM().getData(),
         this.getNumRows(),
         exponent,
@@ -476,7 +497,7 @@ public class Matrix<R extends Num, C extends Num> {
    * @return The element by element power of "this" and b.
    */
   public final Matrix<R, C> elementPower(int b) {
-    return new Matrix<>(this.m_storage.elementPower((double) b));
+    return new Matrix<>(this.m_storage.elementPower(b));
   }
 
   /**
@@ -533,7 +554,7 @@ public class Matrix<R extends Num, C extends Num> {
    */
   public final <R2 extends Num, C2 extends Num> Matrix<R2, C2> block(
       int height, int width, int startingRow, int startingCol) {
-    return new Matrix<R2, C2>(
+    return new Matrix<>(
         this.m_storage.extractMatrix(
             startingRow, startingRow + height, startingCol, startingCol + width));
   }
@@ -582,7 +603,7 @@ public class Matrix<R extends Num, C extends Num> {
     SimpleMatrix temp = m_storage.copy();
 
     CholeskyDecomposition_F64<DMatrixRMaj> chol =
-        DecompositionFactory_DDRM.chol(temp.numRows(), lowerTriangular);
+        DecompositionFactory_DDRM.chol(temp.getNumRows(), lowerTriangular);
     if (!chol.decompose(temp.getMatrix())) {
       // check that the input is not all zeros -- if they are, we special case and return all
       // zeros.
@@ -592,11 +613,10 @@ public class Matrix<R extends Num, C extends Num> {
         isZeros &= Math.abs(matDatum) < 1e-6;
       }
       if (isZeros) {
-        return new Matrix<>(new SimpleMatrix(temp.numRows(), temp.numCols()));
+        return new Matrix<>(new SimpleMatrix(temp.getNumRows(), temp.getNumCols()));
       }
 
-      throw new RuntimeException(
-          "Cholesky decomposition failed! Input matrix:\n" + m_storage.toString());
+      throw new RuntimeException("Cholesky decomposition failed! Input matrix:\n" + m_storage);
     }
 
     return new Matrix<>(SimpleMatrix.wrap(chol.getT(null)));
@@ -631,20 +651,6 @@ public class Matrix<R extends Num, C extends Num> {
    */
   public static <D extends Num> Matrix<D, D> eye(D dim) {
     return new Matrix<>(SimpleMatrix.identity(Objects.requireNonNull(dim).getNum()));
-  }
-
-  /**
-   * Entrypoint to the {@link MatBuilder} class for creation of custom matrices with the given
-   * dimensions and contents.
-   *
-   * @param rows The number of rows of the desired matrix.
-   * @param cols The number of columns of the desired matrix.
-   * @param <R> The number of rows of the desired matrix as a generic.
-   * @param <C> The number of columns of the desired matrix as a generic.
-   * @return A builder to construct the matrix.
-   */
-  public static <R extends Num, C extends Num> MatBuilder<R, C> mat(Nat<R> rows, Nat<C> cols) {
-    return new MatBuilder<>(Objects.requireNonNull(rows), Objects.requireNonNull(cols));
   }
 
   /**
@@ -711,7 +717,7 @@ public class Matrix<R extends Num, C extends Num> {
    * @param lowerTriangular Whether this matrix is lower triangular.
    */
   public void rankUpdate(Matrix<R, N1> v, double sigma, boolean lowerTriangular) {
-    WPIMathJNI.rankUpdate(this.getData(), this.getNumRows(), v.getData(), sigma, lowerTriangular);
+    EigenJNI.rankUpdate(this.getData(), this.getNumRows(), v.getData(), sigma, lowerTriangular);
   }
 
   @Override
@@ -729,22 +735,42 @@ public class Matrix<R extends Num, C extends Num> {
    */
   @Override
   public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof Matrix)) {
-      return false;
-    }
-
-    Matrix<?, ?> matrix = (Matrix<?, ?>) other;
-    if (MatrixFeatures_DDRM.hasUncountable(matrix.m_storage.getDDRM())) {
-      return false;
-    }
-    return MatrixFeatures_DDRM.isEquals(this.m_storage.getDDRM(), matrix.m_storage.getDDRM());
+    return this == other
+        || other instanceof Matrix<?, ?> matrix
+            && !MatrixFeatures_DDRM.hasUncountable(matrix.m_storage.getDDRM())
+            && MatrixFeatures_DDRM.isEquals(this.m_storage.getDDRM(), matrix.m_storage.getDDRM());
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(m_storage);
+  }
+
+  /**
+   * Creates an implementation of the {@link Protobuf} interface for matrices.
+   *
+   * @param <R> The number of rows of the matrices this serializer processes.
+   * @param <C> The number of cols of the matrices this serializer processes.
+   * @param rows The number of rows of the matrices this serializer processes.
+   * @param cols The number of cols of the matrices this serializer processes.
+   * @return The protobuf implementation.
+   */
+  public static <R extends Num, C extends Num> MatrixProto<R, C> getProto(
+      Nat<R> rows, Nat<C> cols) {
+    return new MatrixProto<>(rows, cols);
+  }
+
+  /**
+   * Creates an implementation of the {@link Struct} interfaces for matrices.
+   *
+   * @param <R> The number of rows of the matrices this serializer processes.
+   * @param <C> The number of cols of the matrices this serializer processes.
+   * @param rows The number of rows of the matrices this serializer processes.
+   * @param cols The number of cols of the matrices this serializer processes.
+   * @return The struct implementation.
+   */
+  public static <R extends Num, C extends Num> MatrixStruct<R, C> getStruct(
+      Nat<R> rows, Nat<C> cols) {
+    return new MatrixStruct<>(rows, cols);
   }
 }

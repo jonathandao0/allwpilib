@@ -57,8 +57,21 @@ public class AprilTagDetector implements AutoCloseable {
      */
     public boolean debug;
 
+    /** Default constructor. */
     public Config() {}
 
+    /**
+     * Constructs a detector configuration.
+     *
+     * @param numThreads How many threads should be used for computation.
+     * @param quadDecimate Quad decimation.
+     * @param quadSigma What Gaussian blur should be applied to the segmented image (used for quad
+     *     detection).
+     * @param refineEdges When true, the edges of the each quad are adjusted to "snap to" strong
+     *     gradients nearby.
+     * @param decodeSharpening How much sharpening should be done to decoded images.
+     * @param debug Debug mode.
+     */
     Config(
         int numThreads,
         float quadDecimate,
@@ -86,12 +99,8 @@ public class AprilTagDetector implements AutoCloseable {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof Config)) {
-        return false;
-      }
-
-      Config other = (Config) obj;
-      return numThreads == other.numThreads
+      return obj instanceof Config other
+          && numThreads == other.numThreads
           && quadDecimate == other.quadDecimate
           && quadSigma == other.quadSigma
           && refineEdges == other.refineEdges
@@ -103,8 +112,8 @@ public class AprilTagDetector implements AutoCloseable {
   /** Quad threshold parameters. */
   @SuppressWarnings("MemberName")
   public static class QuadThresholdParameters {
-    /** Threshold used to reject quads containing too few pixels. Default is 5 pixels. */
-    public int minClusterPixels = 5;
+    /** Threshold used to reject quads containing too few pixels. Default is 300 pixels. */
+    public int minClusterPixels = 300;
 
     /**
      * How many corner candidates to consider when segmenting a group of pixels into a quad. Default
@@ -115,9 +124,9 @@ public class AprilTagDetector implements AutoCloseable {
     /**
      * Critical angle, in radians. The detector will reject quads where pairs of edges have angles
      * that are close to straight or close to 180 degrees. Zero means that no quads are rejected.
-     * Default is 10 degrees.
+     * Default is 45 degrees.
      */
-    public double criticalAngle = 10 * Math.PI / 180.0;
+    public double criticalAngle = 45 * Math.PI / 180.0;
 
     /**
      * When fitting lines to the contours, the maximum mean squared error allowed. This is useful in
@@ -139,8 +148,21 @@ public class AprilTagDetector implements AutoCloseable {
      */
     public boolean deglitch;
 
+    /** Default constructor. */
     public QuadThresholdParameters() {}
 
+    /**
+     * Constructs quad threshold parameters.
+     *
+     * @param minClusterPixels Threshold used to reject quads containing too few pixels.
+     * @param maxNumMaxima How many corner candidates to consider when segmenting a group of pixels
+     *     into a quad.
+     * @param criticalAngle Critical angle, in radians.
+     * @param maxLineFitMSE When fitting lines to the contours, the maximum mean squared error
+     *     allowed.
+     * @param minWhiteBlackDiff Minimum brightness offset.
+     * @param deglitch Whether the thresholded image be should be deglitched.
+     */
     QuadThresholdParameters(
         int minClusterPixels,
         int maxNumMaxima,
@@ -168,12 +190,8 @@ public class AprilTagDetector implements AutoCloseable {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof QuadThresholdParameters)) {
-        return false;
-      }
-
-      QuadThresholdParameters other = (QuadThresholdParameters) obj;
-      return minClusterPixels == other.minClusterPixels
+      return obj instanceof QuadThresholdParameters other
+          && minClusterPixels == other.minClusterPixels
           && maxNumMaxima == other.maxNumMaxima
           && criticalAngle == other.criticalAngle
           && maxLineFitMSE == other.maxLineFitMSE
@@ -182,8 +200,11 @@ public class AprilTagDetector implements AutoCloseable {
     }
   }
 
+  /** Constructs an AprilTagDetector. */
+  @SuppressWarnings("this-escape")
   public AprilTagDetector() {
     m_native = AprilTagJNI.createDetector();
+    setQuadThresholdParameters(new QuadThresholdParameters());
   }
 
   @Override
@@ -244,7 +265,7 @@ public class AprilTagDetector implements AutoCloseable {
    * Adds a family of tags to be detected.
    *
    * @param fam Family name, e.g. "tag16h5"
-   * @param bitsCorrected maximum number of bits to correct
+   * @param bitsCorrected Maximum number of bits to correct
    * @throws IllegalArgumentException if family name not recognized
    */
   public void addFamily(String fam, int bitsCorrected) {
@@ -270,11 +291,13 @@ public class AprilTagDetector implements AutoCloseable {
   /**
    * Detect tags from an 8-bit image.
    *
+   * <p>The image must be grayscale.
+   *
    * @param img 8-bit OpenCV Mat image
    * @return Results (array of AprilTagDetection)
    */
   public AprilTagDetection[] detect(Mat img) {
-    return AprilTagJNI.detect(m_native, img.cols(), img.rows(), img.cols(), img.dataAddr());
+    return AprilTagJNI.detect(m_native, img.cols(), img.rows(), (int) img.step1(), img.dataAddr());
   }
 
   private long m_native;

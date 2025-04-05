@@ -5,12 +5,13 @@
 #include <limits>
 #include <random>
 
+#include <gtest/gtest.h>
+
 #include "frc/kinematics/SwerveDriveKinematics.h"
 #include "frc/kinematics/SwerveDriveOdometry.h"
 #include "frc/trajectory/Trajectory.h"
 #include "frc/trajectory/TrajectoryConfig.h"
 #include "frc/trajectory/TrajectoryGenerator.h"
-#include "gtest/gtest.h"
 
 using namespace frc;
 
@@ -76,7 +77,8 @@ TEST_F(SwerveDriveOdometryTest, AccuracyFacingTrajectory) {
       Translation2d{1_m, 1_m}, Translation2d{1_m, -1_m},
       Translation2d{-1_m, -1_m}, Translation2d{-1_m, 1_m}};
 
-  SwerveDriveOdometry<4> odometry{kinematics, 0_rad, {zero, zero, zero, zero}};
+  SwerveDriveOdometry<4> odometry{
+      kinematics, frc::Rotation2d{}, {zero, zero, zero, zero}};
 
   SwerveModulePosition fl;
   SwerveModulePosition fr;
@@ -92,7 +94,7 @@ TEST_F(SwerveDriveOdometryTest, AccuracyFacingTrajectory) {
   std::default_random_engine generator;
   std::normal_distribution<double> distribution(0.0, 1.0);
 
-  units::second_t dt = 0.02_s;
+  units::second_t dt = 20_ms;
   units::second_t t = 0_s;
 
   double maxError = -std::numeric_limits<double>::max();
@@ -140,7 +142,8 @@ TEST_F(SwerveDriveOdometryTest, AccuracyFacingXAxis) {
       Translation2d{1_m, 1_m}, Translation2d{1_m, -1_m},
       Translation2d{-1_m, -1_m}, Translation2d{-1_m, 1_m}};
 
-  SwerveDriveOdometry<4> odometry{kinematics, 0_rad, {zero, zero, zero, zero}};
+  SwerveDriveOdometry<4> odometry{
+      kinematics, frc::Rotation2d{}, {zero, zero, zero, zero}};
 
   SwerveModulePosition fl;
   SwerveModulePosition fr;
@@ -156,7 +159,7 @@ TEST_F(SwerveDriveOdometryTest, AccuracyFacingXAxis) {
   std::default_random_engine generator;
   std::normal_distribution<double> distribution(0.0, 1.0);
 
-  units::second_t dt = 0.02_s;
+  units::second_t dt = 20_ms;
   units::second_t t = 0_s;
 
   double maxError = -std::numeric_limits<double>::max();

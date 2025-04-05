@@ -17,20 +17,35 @@ import edu.wpi.first.wpilibj.event.EventLoop;
  * and the mapping of ports to hardware buttons depends on the code in the Driver Station.
  */
 public class Joystick extends GenericHID {
+  /** Default X axis channel. */
   public static final byte kDefaultXChannel = 0;
+
+  /** Default Y axis channel. */
   public static final byte kDefaultYChannel = 1;
+
+  /** Default Z axis channel. */
   public static final byte kDefaultZChannel = 2;
+
+  /** Default twist axis channel. */
   public static final byte kDefaultTwistChannel = 2;
+
+  /** Default throttle axis channel. */
   public static final byte kDefaultThrottleChannel = 3;
 
   /** Represents an analog axis on a joystick. */
   public enum AxisType {
+    /** X axis. */
     kX(0),
+    /** Y axis. */
     kY(1),
+    /** Z axis. */
     kZ(2),
+    /** Twist axis. */
     kTwist(3),
+    /** Throttle axis. */
     kThrottle(4);
 
+    /** AxisType value. */
     public final int value;
 
     AxisType(int value) {
@@ -40,9 +55,12 @@ public class Joystick extends GenericHID {
 
   /** Represents a digital button on a joystick. */
   public enum ButtonType {
+    /** kTrigger. */
     kTrigger(1),
+    /** kTop. */
     kTop(2);
 
+    /** ButtonType value. */
     public final int value;
 
     ButtonType(int value) {
@@ -161,7 +179,7 @@ public class Joystick extends GenericHID {
 
   /**
    * Get the X value of the joystick. This depends on the mapping of the joystick connected to the
-   * current port.
+   * current port. On most joysticks, positive is to the right.
    *
    * @return The X value of the joystick.
    */
@@ -171,7 +189,7 @@ public class Joystick extends GenericHID {
 
   /**
    * Get the Y value of the joystick. This depends on the mapping of the joystick connected to the
-   * current port.
+   * current port. On most joysticks, positive is to the back.
    *
    * @return The Y value of the joystick.
    */
@@ -184,7 +202,7 @@ public class Joystick extends GenericHID {
    *
    * @return the z position
    */
-  public double getZ() {
+  public final double getZ() {
     return getRawAxis(m_axes[AxisType.kZ.value]);
   }
 
@@ -194,7 +212,7 @@ public class Joystick extends GenericHID {
    *
    * @return The Twist value of the joystick.
    */
-  public double getTwist() {
+  public final double getTwist() {
     return getRawAxis(m_axes[AxisType.kTwist.value]);
   }
 
@@ -204,7 +222,7 @@ public class Joystick extends GenericHID {
    *
    * @return The Throttle value of the joystick.
    */
-  public double getThrottle() {
+  public final double getThrottle() {
     return getRawAxis(m_axes[AxisType.kThrottle.value]);
   }
 
@@ -243,7 +261,7 @@ public class Joystick extends GenericHID {
    *     given loop.
    */
   public BooleanEvent trigger(EventLoop loop) {
-    return new BooleanEvent(loop, this::getTrigger);
+    return button(ButtonType.kTrigger.value, loop);
   }
 
   /**
@@ -281,12 +299,12 @@ public class Joystick extends GenericHID {
    *     loop.
    */
   public BooleanEvent top(EventLoop loop) {
-    return new BooleanEvent(loop, this::getTop);
+    return button(ButtonType.kTop.value, loop);
   }
 
   /**
-   * Get the magnitude of the direction vector formed by the joystick's current position relative to
-   * its origin.
+   * Get the magnitude of the vector formed by the joystick's current position relative to its
+   * origin.
    *
    * @return The magnitude of the direction vector
    */
@@ -295,16 +313,26 @@ public class Joystick extends GenericHID {
   }
 
   /**
-   * Get the direction of the vector formed by the joystick and its origin in radians.
+   * Get the direction of the vector formed by the joystick and its origin in radians. 0 is forward
+   * and clockwise is positive. (Straight right is π/2.)
    *
    * @return The direction of the vector in radians
    */
   public double getDirectionRadians() {
+    // https://docs.wpilib.org/en/stable/docs/software/basic-programming/coordinate-system.html#joystick-and-controller-coordinate-system
+    // A positive rotation around the X axis moves the joystick right, and a
+    // positive rotation around the Y axis moves the joystick backward. When
+    // treating them as translations, 0 radians is measured from the right
+    // direction, and angle increases clockwise.
+    //
+    // It's rotated 90 degrees CCW (y is negated and the arguments are reversed)
+    // so that 0 radians is forward.
     return Math.atan2(getX(), -getY());
   }
 
   /**
-   * Get the direction of the vector formed by the joystick and its origin in degrees.
+   * Get the direction of the vector formed by the joystick and its origin in degrees. 0 is forward
+   * and clockwise is positive. (Straight right is 90.)
    *
    * @return The direction of the vector in degrees
    */

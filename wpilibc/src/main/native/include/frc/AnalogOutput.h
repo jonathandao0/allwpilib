@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <hal/AnalogOutput.h>
 #include <hal/Types.h>
 #include <wpi/sendable/Sendable.h>
 #include <wpi/sendable/SendableHelper.h>
@@ -25,22 +26,22 @@ class AnalogOutput : public wpi::Sendable,
    */
   explicit AnalogOutput(int channel);
 
-  ~AnalogOutput() override;
-
   AnalogOutput(AnalogOutput&&) = default;
   AnalogOutput& operator=(AnalogOutput&&) = default;
+
+  ~AnalogOutput() override = default;
 
   /**
    * Set the value of the analog output.
    *
-   * @param voltage The output value in Volts, from 0.0 to +5.0
+   * @param voltage The output value in Volts, from 0.0 to +5.0.
    */
   void SetVoltage(double voltage);
 
   /**
-   * Get the voltage of the analog output
+   * Get the voltage of the analog output.
    *
-   * @return The value in Volts, from 0.0 to +5.0
+   * @return The value in Volts, from 0.0 to +5.0.
    */
   double GetVoltage() const;
 
@@ -53,7 +54,7 @@ class AnalogOutput : public wpi::Sendable,
 
  protected:
   int m_channel;
-  hal::Handle<HAL_AnalogOutputHandle> m_port;
+  hal::Handle<HAL_AnalogOutputHandle, HAL_FreeAnalogOutputPort> m_port;
 };
 
 }  // namespace frc

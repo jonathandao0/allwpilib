@@ -7,6 +7,7 @@ package edu.wpi.first.math.spline;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import java.util.Arrays;
+import java.util.Optional;
 import org.ejml.simple.SimpleMatrix;
 
 /** Represents a two-dimensional parametric spline that interpolates between two points. */
@@ -27,7 +28,21 @@ public abstract class Spline {
    *
    * @return The coefficients of the spline.
    */
-  protected abstract SimpleMatrix getCoefficients();
+  public abstract SimpleMatrix getCoefficients();
+
+  /**
+   * Returns the initial control vector that created this spline.
+   *
+   * @return The initial control vector that created this spline.
+   */
+  public abstract ControlVector getInitialControlVector();
+
+  /**
+   * Returns the final control vector that created this spline.
+   *
+   * @return The final control vector that created this spline.
+   */
+  public abstract ControlVector getFinalControlVector();
 
   /**
    * Gets the pose and curvature at some point t on the spline.
@@ -35,7 +50,7 @@ public abstract class Spline {
    * @param t The point t
    * @return The pose and curvature at that point.
    */
-  public PoseWithCurvature getPoint(double t) {
+  public Optional<PoseWithCurvature> getPoint(double t) {
     SimpleMatrix polynomialBases = new SimpleMatrix(m_degree + 1, 1);
     final var coefficients = getCoefficients();
 
@@ -72,10 +87,14 @@ public abstract class Spline {
       ddy = combined.get(5, 0) / t / t;
     }
 
+    if (Math.hypot(dx, dy) < 1e-6) {
+      return Optional.empty();
+    }
+
     // Find the curvature.
     final double curvature = (dx * ddy - ddx * dy) / ((dx * dx + dy * dy) * Math.hypot(dx, dy));
 
-    return new PoseWithCurvature(new Pose2d(x, y, new Rotation2d(dx, dy)), curvature);
+    return Optional.of(new PoseWithCurvature(new Pose2d(x, y, new Rotation2d(dx, dy)), curvature));
   }
 
   /**
@@ -85,7 +104,10 @@ public abstract class Spline {
    * the value of x[2] is the second derivative in the x dimension.
    */
   public static class ControlVector {
+    /** The x components of the control vector. */
     public double[] x;
+
+    /** The y components of the control vector. */
     public double[] y;
 
     /**

@@ -4,13 +4,21 @@
 
 #include <cmath>
 
+#include <gtest/gtest.h>
+
 #include "frc/geometry/Pose2d.h"
 #include "frc/geometry/Rotation2d.h"
 #include "frc/geometry/Transform2d.h"
 #include "frc/geometry/Translation2d.h"
-#include "gtest/gtest.h"
 
 using namespace frc;
+
+TEST(Transform2dTest, ToMatrix) {
+  Transform2d before{1_m, 2_m, 20_deg};
+  Transform2d after{before.ToMatrix()};
+
+  EXPECT_EQ(before, after);
+}
 
 TEST(Transform2dTest, Inverse) {
   const Pose2d initial{1_m, 2_m, 45_deg};

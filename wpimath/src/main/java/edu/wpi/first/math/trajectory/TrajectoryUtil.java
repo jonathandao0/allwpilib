@@ -4,14 +4,17 @@
 
 package edu.wpi.first.math.trajectory;
 
-import edu.wpi.first.math.WPIMathJNI;
+import edu.wpi.first.math.MathSharedStore;
+import edu.wpi.first.math.MathUsageId;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.jni.TrajectoryUtilJNI;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Trajectory utilities. */
 public final class TrajectoryUtil {
   private TrajectoryUtil() {
     throw new UnsupportedOperationException("This is a utility class!");
@@ -67,6 +70,8 @@ public final class TrajectoryUtil {
     return elements;
   }
 
+  private static int pathWeaverTrajectoryInstances;
+
   /**
    * Imports a Trajectory from a JSON file exported from PathWeaver.
    *
@@ -75,7 +80,9 @@ public final class TrajectoryUtil {
    * @throws IOException if reading from the file fails.
    */
   public static Trajectory fromPathweaverJson(Path path) throws IOException {
-    return createTrajectoryFromElements(WPIMathJNI.fromPathweaverJson(path.toString()));
+    MathSharedStore.reportUsage(
+        MathUsageId.kTrajectory_PathWeaver, ++pathWeaverTrajectoryInstances);
+    return createTrajectoryFromElements(TrajectoryUtilJNI.fromPathweaverJson(path.toString()));
   }
 
   /**
@@ -86,7 +93,7 @@ public final class TrajectoryUtil {
    * @throws IOException if writing to the file fails.
    */
   public static void toPathweaverJson(Trajectory trajectory, Path path) throws IOException {
-    WPIMathJNI.toPathweaverJson(getElementsFromTrajectory(trajectory), path.toString());
+    TrajectoryUtilJNI.toPathweaverJson(getElementsFromTrajectory(trajectory), path.toString());
   }
 
   /**
@@ -97,7 +104,7 @@ public final class TrajectoryUtil {
    * @throws TrajectorySerializationException if deserialization of the string fails.
    */
   public static Trajectory deserializeTrajectory(String json) {
-    return createTrajectoryFromElements(WPIMathJNI.deserializeTrajectory(json));
+    return createTrajectoryFromElements(TrajectoryUtilJNI.deserializeTrajectory(json));
   }
 
   /**
@@ -108,10 +115,16 @@ public final class TrajectoryUtil {
    * @throws TrajectorySerializationException if serialization of the trajectory fails.
    */
   public static String serializeTrajectory(Trajectory trajectory) {
-    return WPIMathJNI.serializeTrajectory(getElementsFromTrajectory(trajectory));
+    return TrajectoryUtilJNI.serializeTrajectory(getElementsFromTrajectory(trajectory));
   }
 
+  /** Exception for trajectory serialization failure. */
   public static class TrajectorySerializationException extends RuntimeException {
+    /**
+     * Constructs a TrajectorySerializationException.
+     *
+     * @param message The exception message.
+     */
     public TrajectorySerializationException(String message) {
       super(message);
     }

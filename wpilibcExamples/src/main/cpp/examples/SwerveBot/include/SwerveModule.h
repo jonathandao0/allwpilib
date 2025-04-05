@@ -25,7 +25,7 @@ class SwerveModule {
                int turningEncoderChannelA, int turningEncoderChannelB);
   frc::SwerveModuleState GetState() const;
   frc::SwerveModulePosition GetPosition() const;
-  void SetDesiredState(const frc::SwerveModuleState& state);
+  void SetDesiredState(frc::SwerveModuleState& state);
 
  private:
   static constexpr double kWheelRadius = 0.0508;
@@ -42,7 +42,7 @@ class SwerveModule {
   frc::Encoder m_driveEncoder;
   frc::Encoder m_turningEncoder;
 
-  frc2::PIDController m_drivePIDController{1.0, 0, 0};
+  frc::PIDController m_drivePIDController{1.0, 0, 0};
   frc::ProfiledPIDController<units::radians> m_turningPIDController{
       1.0,
       0.0,

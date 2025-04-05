@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_NEW_ALLOCATOR_HPP_INCLUDED
 #define WPI_MEMORY_NEW_ALLOCATOR_HPP_INCLUDED
@@ -38,10 +37,10 @@ namespace wpi
                                                        new_alloator_leak_checker)
         } // namespace detail
 
-        /// A stateless \concept{concept_rawallocator,RawAllocator} that allocates memory using (nothrow) <tt>operator new</tt>.
+        /// A stateless RawAllocator that allocates memory using (nothrow) <tt>operator new</tt>.
         /// If the operator returns \c nullptr, it behaves like \c new and loops calling \c std::new_handler,
         /// but instead of throwing a \c std::bad_alloc exception, it throws \ref out_of_memory.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         using new_allocator =
             WPI_IMPL_DEFINED(detail::lowlevel_allocator<detail::new_allocator_impl>);
 

@@ -12,8 +12,11 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/time.h>
 #include <unistd.h>
 #endif
+
+#include <utility>
 
 #include <wpi/Logger.h>
 #include <wpi/SmallString.h>
@@ -110,6 +113,7 @@ int UDPClient::start(int port) {
 #endif
   }
 
+  // NOLINTNEXTLINE(modernize-avoid-bind)
   int result = bind(m_lsd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
   if (result != 0) {
     WPI_ERROR(m_logger, "bind() failed: {}", SocketStrerror());

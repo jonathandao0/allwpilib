@@ -19,7 +19,7 @@ class PIDToleranceTest {
     try (var controller = new PIDController(0.05, 0.0, 0.0)) {
       controller.enableContinuousInput(-kRange / 2, kRange / 2);
 
-      assertTrue(controller.atSetpoint());
+      assertFalse(controller.atSetpoint());
     }
   }
 
@@ -28,10 +28,7 @@ class PIDToleranceTest {
     try (var controller = new PIDController(0.05, 0.0, 0.0)) {
       controller.enableContinuousInput(-kRange / 2, kRange / 2);
 
-      assertTrue(
-          controller.atSetpoint(),
-          "Error was not in tolerance when it should have been. Error was "
-              + controller.getPositionError());
+      assertFalse(controller.atSetpoint());
 
       controller.setTolerance(kTolerance);
       controller.setSetpoint(kSetpoint);
@@ -39,28 +36,28 @@ class PIDToleranceTest {
       assertFalse(
           controller.atSetpoint(),
           "Error was in tolerance when it should not have been. Error was "
-              + controller.getPositionError());
+              + controller.getError());
 
       controller.calculate(0.0);
 
       assertFalse(
           controller.atSetpoint(),
           "Error was in tolerance when it should not have been. Error was "
-              + controller.getPositionError());
+              + controller.getError());
 
       controller.calculate(kSetpoint + kTolerance / 2);
 
       assertTrue(
           controller.atSetpoint(),
           "Error was not in tolerance when it should have been. Error was "
-              + controller.getPositionError());
+              + controller.getError());
 
       controller.calculate(kSetpoint + 10 * kTolerance);
 
       assertFalse(
           controller.atSetpoint(),
           "Error was in tolerance when it should not have been. Error was "
-              + controller.getPositionError());
+              + controller.getError());
     }
   }
 }

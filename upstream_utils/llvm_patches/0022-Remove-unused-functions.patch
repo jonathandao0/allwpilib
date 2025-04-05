@@ -1,32 +1,17 @@
-From a172c93df929ac6c9f783fd5af1e4df3604c4c66 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: PJ Reiniger <pj.reiniger@gmail.com>
 Date: Sun, 8 May 2022 19:16:51 -0400
-Subject: [PATCH 22/28] Remove unused functions
+Subject: [PATCH 22/37] Remove unused functions
 
 ---
- llvm/include/llvm/Support/DJB.h         |  3 -
  llvm/include/llvm/Support/raw_ostream.h |  5 +-
  llvm/lib/Support/ErrorHandling.cpp      | 16 -----
- llvm/lib/Support/raw_ostream.cpp        | 49 +++++++--------
+ llvm/lib/Support/raw_ostream.cpp        | 47 +++++++-------
  llvm/unittests/ADT/SmallStringTest.cpp  | 81 -------------------------
- 5 files changed, 23 insertions(+), 131 deletions(-)
+ 4 files changed, 23 insertions(+), 126 deletions(-)
 
-diff --git a/llvm/include/llvm/Support/DJB.h b/llvm/include/llvm/Support/DJB.h
-index 8737cd144..67b0ae91b 100644
---- a/llvm/include/llvm/Support/DJB.h
-+++ b/llvm/include/llvm/Support/DJB.h
-@@ -24,9 +24,6 @@ inline uint32_t djbHash(std::string_view Buffer, uint32_t H = 5381) {
-   return H;
- }
- 
--/// Computes the Bernstein hash after folding the input according to the Dwarf 5
--/// standard case folding rules.
--uint32_t caseFoldingDjbHash(StringRef Buffer, uint32_t H = 5381);
- } // namespace llvm
- 
- #endif // LLVM_SUPPORT_DJB_H
 diff --git a/llvm/include/llvm/Support/raw_ostream.h b/llvm/include/llvm/Support/raw_ostream.h
-index 256bcec25..9b3a87e1b 100644
+index 39a600c2ed7cd1cfecb46ff17929ffcb389207d7..9bb9260eecf35b0f71d144256fc956a80b2da8a3 100644
 --- a/llvm/include/llvm/Support/raw_ostream.h
 +++ b/llvm/include/llvm/Support/raw_ostream.h
 @@ -71,7 +71,6 @@ private:
@@ -35,9 +20,9 @@ index 256bcec25..9b3a87e1b 100644
    char *OutBufStart, *OutBufEnd, *OutBufCur;
 -  bool ColorEnabled = false;
  
-   /// Optional stream this stream is tied to. If this stream is written to, the
-   /// tied-to stream will be flushed first.
-@@ -304,9 +303,9 @@ public:
+   enum class BufferKind {
+     Unbuffered = 0,
+@@ -330,9 +329,9 @@ public:
  
    // Enable or disable colors. Once enable_colors(false) is called,
    // changeColor() has no effect until enable_colors(true) is called.
@@ -47,13 +32,13 @@ index 256bcec25..9b3a87e1b 100644
 -  bool colors_enabled() const { return ColorEnabled; }
 +  bool colors_enabled() const { return false; }
  
-   /// Tie this stream to the specified stream. Replaces any existing tied-to
-   /// stream. Specifying a nullptr unties the stream.
+   //===--------------------------------------------------------------------===//
+   // Subclass Interface
 diff --git a/llvm/lib/Support/ErrorHandling.cpp b/llvm/lib/Support/ErrorHandling.cpp
-index 8de7b726d..bc08199a1 100644
+index 9b292a51dbd59ad700da22d008a5bcac1c334b26..51cc3edaa7b128725912e51757cd0b443fe064ae 100644
 --- a/llvm/lib/Support/ErrorHandling.cpp
 +++ b/llvm/lib/Support/ErrorHandling.cpp
-@@ -178,22 +178,6 @@ void llvm::llvm_unreachable_internal(const char *msg, const char *file,
+@@ -182,22 +182,6 @@ void llvm::llvm_unreachable_internal(const char *msg, const char *file,
  #endif
  }
  
@@ -75,12 +60,12 @@ index 8de7b726d..bc08199a1 100644
 -
  #ifdef _WIN32
  
- #include <winerror.h>
+ #define WIN32_NO_STATUS
 diff --git a/llvm/lib/Support/raw_ostream.cpp b/llvm/lib/Support/raw_ostream.cpp
-index 878a3a5e9..632b52235 100644
+index 6ed93793a64c523102626d581656d2f9509f7d5d..7e9a58db056e315cdcec22af0439017dee737c8f 100644
 --- a/llvm/lib/Support/raw_ostream.cpp
 +++ b/llvm/lib/Support/raw_ostream.cpp
-@@ -167,16 +167,6 @@ raw_ostream &raw_ostream::write_escaped(std::string_view Str,
+@@ -176,16 +176,6 @@ raw_ostream &raw_ostream::write_escaped(std::string_view Str,
    return *this;
  }
  
@@ -97,7 +82,7 @@ index 878a3a5e9..632b52235 100644
  void raw_ostream::flush_nonempty() {
    assert(OutBufCur > OutBufStart && "Invalid call to flush_nonempty.");
    size_t Length = OutBufCur - OutBufStart;
-@@ -321,15 +311,22 @@ static int getFD(std::string_view Filename, std::error_code &EC,
+@@ -322,15 +312,22 @@ static int getFD(std::string_view Filename, std::error_code &EC,
    if (Filename == "-") {
      EC = std::error_code();
      // Change stdout's text/binary mode based on the Flags.
@@ -125,7 +110,7 @@ index 878a3a5e9..632b52235 100644
    if (EC)
      return -1;
  
-@@ -389,12 +386,8 @@ raw_fd_ostream::raw_fd_ostream(int fd, bool shouldClose, bool unbuffered,
+@@ -390,12 +387,8 @@ raw_fd_ostream::raw_fd_ostream(int fd, bool shouldClose, bool unbuffered,
  
    // Get the starting position.
    off_t loc = ::lseek(FD, 0, SEEK_CUR);
@@ -139,7 +124,7 @@ index 878a3a5e9..632b52235 100644
  #else
    SupportsSeeking = !EC && loc != (off_t)-1;
  #endif
-@@ -407,10 +400,8 @@ raw_fd_ostream::raw_fd_ostream(int fd, bool shouldClose, bool unbuffered,
+@@ -408,10 +401,8 @@ raw_fd_ostream::raw_fd_ostream(int fd, bool shouldClose, bool unbuffered,
  raw_fd_ostream::~raw_fd_ostream() {
    if (FD >= 0) {
      flush();
@@ -152,7 +137,7 @@ index 878a3a5e9..632b52235 100644
    }
  
  #ifdef __MINGW32__
-@@ -505,7 +496,11 @@ void raw_fd_ostream::write_impl(const char *Ptr, size_t Size) {
+@@ -509,7 +500,11 @@ void raw_fd_ostream::write_impl(const char *Ptr, size_t Size) {
  
    do {
      size_t ChunkSize = std::min(Size, MaxWriteSize);
@@ -164,7 +149,7 @@ index 878a3a5e9..632b52235 100644
  
      if (ret < 0) {
        // If it's a recoverable error, swallow it and retry the write.
-@@ -540,8 +535,8 @@ void raw_fd_ostream::close() {
+@@ -552,8 +547,8 @@ void raw_fd_ostream::close() {
    assert(ShouldClose);
    ShouldClose = false;
    flush();
@@ -175,17 +160,8 @@ index 878a3a5e9..632b52235 100644
    FD = -1;
  }
  
-@@ -550,8 +545,6 @@ uint64_t raw_fd_ostream::seek(uint64_t off) {
-   flush();
- #ifdef _WIN32
-   pos = ::_lseeki64(FD, off, SEEK_SET);
--#elif defined(HAVE_LSEEK64)
--  pos = ::lseek64(FD, off, SEEK_SET);
- #else
-   pos = ::lseek(FD, off, SEEK_SET);
- #endif
 diff --git a/llvm/unittests/ADT/SmallStringTest.cpp b/llvm/unittests/ADT/SmallStringTest.cpp
-index bee3875d1..87600ea47 100644
+index 6cf14700b34739420cd3dc4ff8a4c16ce162f715..87600ea4704bc98acab9085d16cfafd3d586714e 100644
 --- a/llvm/unittests/ADT/SmallStringTest.cpp
 +++ b/llvm/unittests/ADT/SmallStringTest.cpp
 @@ -129,23 +129,6 @@ TEST_F(SmallStringTest, StdStringConversion) {
@@ -239,12 +215,12 @@ index bee3875d1..87600ea47 100644
 -}
 -
 -TEST_F(SmallStringTest, Comparisons) {
--  EXPECT_EQ(-1, SmallString<10>("aab").compare("aad"));
+-  EXPECT_GT( 0, SmallString<10>("aab").compare("aad"));
 -  EXPECT_EQ( 0, SmallString<10>("aab").compare("aab"));
--  EXPECT_EQ( 1, SmallString<10>("aab").compare("aaa"));
--  EXPECT_EQ(-1, SmallString<10>("aab").compare("aabb"));
--  EXPECT_EQ( 1, SmallString<10>("aab").compare("aa"));
--  EXPECT_EQ( 1, SmallString<10>("\xFF").compare("\1"));
+-  EXPECT_LT( 0, SmallString<10>("aab").compare("aaa"));
+-  EXPECT_GT( 0, SmallString<10>("aab").compare("aabb"));
+-  EXPECT_LT( 0, SmallString<10>("aab").compare("aa"));
+-  EXPECT_LT( 0, SmallString<10>("\xFF").compare("\1"));
 -
 -  EXPECT_EQ(-1, SmallString<10>("AaB").compare_insensitive("aAd"));
 -  EXPECT_EQ( 0, SmallString<10>("AaB").compare_insensitive("aab"));

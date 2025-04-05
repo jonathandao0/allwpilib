@@ -5,7 +5,7 @@
 package edu.wpi.first.wpilibj2.command;
 
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -18,9 +18,9 @@ import java.util.Set;
  *
  * <p>This class is provided by the NewCommands VendorDep
  */
-@SuppressWarnings("removal")
-public class ParallelRaceGroup extends CommandGroupBase {
-  private final Set<Command> m_commands = new HashSet<>();
+public class ParallelRaceGroup extends Command {
+  // LinkedHashSet guarantees we iterate over commands in the order they were added
+  private final Set<Command> m_commands = new LinkedHashSet<>();
   private boolean m_runWhenDisabled = true;
   private boolean m_finished = true;
   private InterruptionBehavior m_interruptBehavior = InterruptionBehavior.kCancelIncoming;
@@ -32,11 +32,17 @@ public class ParallelRaceGroup extends CommandGroupBase {
    *
    * @param commands the commands to include in this composition.
    */
+  @SuppressWarnings("this-escape")
   public ParallelRaceGroup(Command... commands) {
     addCommands(commands);
   }
 
-  @Override
+  /**
+   * Adds the given commands to the group.
+   *
+   * @param commands Commands to add to the group.
+   */
+  @SuppressWarnings("PMD.UseArraysAsList")
   public final void addCommands(Command... commands) {
     if (!m_finished) {
       throw new IllegalStateException(
@@ -46,12 +52,12 @@ public class ParallelRaceGroup extends CommandGroupBase {
     CommandScheduler.getInstance().registerComposedCommands(commands);
 
     for (Command command : commands) {
-      if (!Collections.disjoint(command.getRequirements(), m_requirements)) {
+      if (!Collections.disjoint(command.getRequirements(), getRequirements())) {
         throw new IllegalArgumentException(
             "Multiple commands in a parallel composition cannot require the same subsystems");
       }
       m_commands.add(command);
-      m_requirements.addAll(command.getRequirements());
+      addRequirements(command.getRequirements());
       m_runWhenDisabled &= command.runsWhenDisabled();
       if (command.getInterruptionBehavior() == InterruptionBehavior.kCancelSelf) {
         m_interruptBehavior = InterruptionBehavior.kCancelSelf;

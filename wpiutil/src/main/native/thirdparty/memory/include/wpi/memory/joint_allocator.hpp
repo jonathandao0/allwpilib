@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_JOINT_ALLOCATOR_HPP_INCLUDED
 #define WPI_MEMORY_JOINT_ALLOCATOR_HPP_INCLUDED
@@ -98,7 +97,7 @@ namespace wpi
         /// Tag type that can't be created.
         ///
         /// It isued by \ref joint_ptr.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         class joint
         {
             joint(std::size_t cap) noexcept : capacity(cap) {}
@@ -114,7 +113,7 @@ namespace wpi
         /// Tag type to make the joint size more explicit.
         ///
         /// It is used by \ref joint_ptr.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         struct joint_size
         {
             std::size_t size;
@@ -126,7 +125,7 @@ namespace wpi
         ///
         /// This will disable default copy/move operations
         /// and inserts additional members for the joint memory management.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         template <typename T>
         class joint_type
         {
@@ -206,9 +205,9 @@ namespace wpi
         /// make sure that you do not call their regular copy/move constructors,
         /// but instead the version where you pass an allocator.
         ///
-        /// The memory block will be managed by the given \concept{concept_rawallocator,RawAllocator},
+        /// The memory block will be managed by the given RawAllocator,
         /// it is stored in an \ref allocator_reference and not owned by the pointer directly.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         template <typename T, class RawAllocator>
         class joint_ptr : WPI_EBO(allocator_reference<RawAllocator>)
         {
@@ -221,7 +220,7 @@ namespace wpi
 
             //=== constructors/destructor/assignment ===//
             /// @{
-            /// \effects Creates it with a \concept{concept_rawallocator,RawAllocator}, but does not own a new object.
+            /// \effects Creates it with a RawAllocator, but does not own a new object.
             explicit joint_ptr(allocator_type& alloc) noexcept
             : allocator_reference<RawAllocator>(alloc), ptr_(nullptr)
             {
@@ -236,7 +235,7 @@ namespace wpi
             /// @{
             /// \effects Reserves memory for the object and the additional size,
             /// and creates the object by forwarding the arguments to its constructor.
-            /// The \concept{concept_rawallocator,RawAllocator} will be used for the allocation.
+            /// The RawAllocator will be used for the allocation.
             template <typename... Args>
             joint_ptr(allocator_type& alloc, joint_size additional_size, Args&&... args)
             : joint_ptr(alloc)
@@ -451,7 +450,7 @@ namespace wpi
         /// @{
         /// \returns A new \ref joint_ptr as if created with the same arguments passed to the constructor.
         /// \relatesalso joint_ptr
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         template <typename T, class RawAllocator, typename... Args>
         auto allocate_joint(RawAllocator& alloc, joint_size additional_size, Args&&... args)
             -> joint_ptr<T, RawAllocator>
@@ -472,7 +471,7 @@ namespace wpi
         /// @{
         /// \returns A new \ref joint_ptr that points to a copy of `joint`.
         /// It will allocate as much memory as needed and forward to the copy constructor.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         template <class RawAllocator, typename T>
         auto clone_joint(RawAllocator& alloc, const joint_type<T>& joint)
             -> joint_ptr<T, RawAllocator>
@@ -494,12 +493,12 @@ namespace wpi
         }
         /// @}
 
-        /// A \concept{concept_rawallocator,RawAllocator} that uses the additional joint memory for its allocation.
+        /// A RawAllocator that uses the additional joint memory for its allocation.
         ///
         /// It is somewhat limited and allows only allocation once.
         /// All joint allocators for an object share the joint memory and must not be used in multiple threads.
         /// The memory it returns is owned by a \ref joint_ptr and will be destroyed through it.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         class joint_allocator
         {
         public:
@@ -515,7 +514,7 @@ namespace wpi
             {
             }
 
-            joint_allocator(const joint_allocator& other) noexcept = default;
+            joint_allocator(const joint_allocator& other) noexcept            = default;
             joint_allocator& operator=(const joint_allocator& other) noexcept = default;
 
             /// \effects Allocates a node with given properties.
@@ -568,7 +567,7 @@ namespace wpi
 
         /// Specialization of \ref is_shared_allocator to mark \ref joint_allocator as shared.
         /// This allows using it as \ref allocator_reference directly.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         template <>
         struct is_shared_allocator<joint_allocator> : std::true_type
         {
@@ -595,7 +594,7 @@ namespace wpi
         /// \note This is required because the container constructor will end up copying/moving the allocator.
         /// But this is not allowed as you need the allocator with the correct joined memory.
         /// Copying can be customized (i.e. forbidden), but sadly not move, so keep that in mind.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         template <>
         struct propagation_traits<joint_allocator>
         {
@@ -625,7 +624,7 @@ namespace wpi
         ///
         /// It has a dynamic, but fixed size,
         /// it cannot grow after it has been created.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         template <typename T>
         class joint_array
         {
@@ -709,7 +708,7 @@ namespace wpi
             }
 
             joint_array& operator=(const joint_array&) = delete;
-            joint_array& operator=(joint_array&&) = delete;
+            joint_array& operator=(joint_array&&)      = delete;
 
             //=== accessors ===//
             /// @{
@@ -810,7 +809,7 @@ namespace wpi
                         stack_->unwind(objects_);
                 }
 
-                builder(builder&&) = delete;
+                builder(builder&&)            = delete;
                 builder& operator=(builder&&) = delete;
 
                 template <typename... Args>

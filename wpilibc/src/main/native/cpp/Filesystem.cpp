@@ -4,6 +4,8 @@
 
 #include "frc/Filesystem.h"
 
+#include <string>
+
 #include <wpi/fs.h>
 
 #include "frc/RobotBase.h"
@@ -13,7 +15,7 @@ std::string frc::filesystem::GetLaunchDirectory() {
 }
 
 std::string frc::filesystem::GetOperatingDirectory() {
-  if constexpr (RobotBase::IsReal()) {
+  if constexpr (!RobotBase::IsSimulation()) {
     return "/home/lvuser";
   } else {
     return frc::filesystem::GetLaunchDirectory();
@@ -21,7 +23,7 @@ std::string frc::filesystem::GetOperatingDirectory() {
 }
 
 std::string frc::filesystem::GetDeployDirectory() {
-  if constexpr (RobotBase::IsReal()) {
+  if constexpr (!RobotBase::IsSimulation()) {
     return "/home/lvuser/deploy";
   } else {
     return (fs::current_path() / "src" / "main" / "deploy").string();

@@ -147,10 +147,7 @@ ext {
                     source {
                         srcDirs 'src/main/native/thirdparty/libuv/src/unix'
                         includes = [
-                            'epoll.cpp',
-                            'linux-core.cpp',
-                            'linux-inotify.cpp',
-                            'linux-syscalls.cpp',
+                            'linux.cpp',
                             'procfs-exepath.cpp',
                             'proctitle.cpp',
                             'random-sysctl-linux.cpp',
@@ -189,19 +186,6 @@ apply from: "${rootDir}/shared/jni/setupBuild.gradle"
 
 nativeUtils.exportsConfigs {
     wpinet {
-        x64ExcludeSymbols = [
-            '_CT??_R0?AV_System_error',
-            '_CT??_R0?AVexception',
-            '_CT??_R0?AVfailure',
-            '_CT??_R0?AVruntime_error',
-            '_CT??_R0?AVsystem_error',
-            '_CTA5?AVfailure',
-            '_TI5?AVfailure',
-            '_CT??_R0?AVout_of_range',
-            '_CTA3?AVout_of_range',
-            '_TI3?AVout_of_range',
-            '_CT??_R0?AVbad_cast'
-        ]
     }
 }
 
@@ -209,7 +193,7 @@ cppHeadersZip {
     from('src/main/native/thirdparty/libuv/include') {
         into '/'
     }
-    from('src/main/native/third_party/tcpsockets/include') {
+    from('src/main/native/thirdparty/tcpsockets/include') {
         into '/'
     }
 }
@@ -234,6 +218,9 @@ model {
                 binaries.all {
                     lib library: 'wpinet', linkage: 'shared'
                     lib project: ':wpiutil', library: 'wpiutil', linkage: 'shared'
+                    if (it.targetPlatform.name == nativeUtils.wpi.platforms.roborio) {
+                        nativeUtils.useRequiredLibrary(it, 'ni_link_libraries', 'ni_runtime_libraries')
+                    }
                 }
                 sources {
                     cpp {
@@ -259,6 +246,9 @@ model {
             binaries.all { binary ->
                 lib project: ':wpinet', library: 'wpinet', linkage: 'static'
                 lib project: ':wpiutil', library: 'wpiutil', linkage: 'static'
+                if (binary.targetPlatform.name == nativeUtils.wpi.platforms.roborio) {
+                    nativeUtils.useRequiredLibrary(binary, 'ni_link_libraries', 'ni_runtime_libraries')
+                }
                 if (binary.targetPlatform.operatingSystem.isLinux()) {
                     linker.args "-lutil"
                 }
@@ -278,6 +268,9 @@ model {
             binaries.all { binary ->
                 lib project: ':wpinet', library: 'wpinet', linkage: 'static'
                 lib project: ':wpiutil', library: 'wpiutil', linkage: 'static'
+                if (binary.targetPlatform.name == nativeUtils.wpi.platforms.roborio) {
+                    nativeUtils.useRequiredLibrary(binary, 'ni_link_libraries', 'ni_runtime_libraries')
+                }
             }
         }
     }

@@ -2,10 +2,11 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
+#include <gtest/gtest.h>
+
 #include "frc/MathUtil.h"
 #include "frc/controller/LTVUnicycleController.h"
 #include "frc/trajectory/TrajectoryGenerator.h"
-#include "gtest/gtest.h"
 #include "units/math.h"
 
 #define EXPECT_NEAR_UNITS(val1, val2, eps) \
@@ -16,7 +17,7 @@ static constexpr units::radian_t kAngularTolerance{2.0 * std::numbers::pi /
                                                    180.0};
 
 TEST(LTVUnicycleControllerTest, ReachesReference) {
-  constexpr auto kDt = 0.02_s;
+  constexpr units::second_t kDt = 20_ms;
 
   frc::LTVUnicycleController controller{{0.0625, 0.125, 2.5}, {4.0, 4.0}, kDt};
   frc::Pose2d robotPose{2.7_m, 23_m, 0_deg};

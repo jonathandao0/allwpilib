@@ -25,7 +25,7 @@ public class PneumaticHub implements PneumaticsBase {
     private int m_refCount;
     private int m_reservedMask;
     private boolean m_compressorReserved;
-    public int[] m_oneShotDurMs = new int[PortsJNI.getNumREVPHChannels()];
+    public final int[] m_oneShotDurMs = new int[PortsJNI.getNumREVPHChannels()];
     private final Object m_reserveLock = new Object();
 
     DataStore(int module) {
@@ -59,8 +59,7 @@ public class PneumaticHub implements PneumaticsBase {
             output.write(("currentVersion=" + fwVersion).getBytes(StandardCharsets.UTF_8));
           }
         } catch (IOException ex) {
-          DriverStation.reportError(
-              "Could not write " + fileName + ": " + ex.toString(), ex.getStackTrace());
+          DriverStation.reportError("Could not write " + fileName + ": " + ex, ex.getStackTrace());
         }
       }
 
@@ -97,8 +96,7 @@ public class PneumaticHub implements PneumaticsBase {
 
   private static DataStore getForModule(int module) {
     synchronized (m_handleLock) {
-      Integer moduleBoxed = module;
-      DataStore pcm = m_handleMap.get(moduleBoxed);
+      DataStore pcm = m_handleMap.get(module);
       if (pcm == null) {
         pcm = new DataStore(module);
       }
@@ -115,14 +113,12 @@ public class PneumaticHub implements PneumaticsBase {
 
   /** Converts volts to PSI per the REV Analog Pressure Sensor datasheet. */
   private static double voltsToPsi(double sensorVoltage, double supplyVoltage) {
-    double pressure = 250 * (sensorVoltage / supplyVoltage) - 25;
-    return pressure;
+    return 250 * (sensorVoltage / supplyVoltage) - 25;
   }
 
   /** Converts PSI to volts per the REV Analog Pressure Sensor datasheet. */
   private static double psiToVolts(double pressure, double supplyVoltage) {
-    double voltage = supplyVoltage * (0.004 * pressure + 0.1);
-    return voltage;
+    return supplyVoltage * (0.004 * pressure + 0.1);
   }
 
   private final DataStore m_dataStore;
@@ -252,8 +248,7 @@ public class PneumaticHub implements PneumaticsBase {
 
   @Override
   public int getSolenoidDisabledList() {
-    int raw = REVPHJNI.getStickyFaultsNative(m_handle);
-    return raw & 0xFFFF;
+    return REVPHJNI.getSolenoidDisabledList(m_handle);
   }
 
   /**
@@ -277,9 +272,9 @@ public class PneumaticHub implements PneumaticsBase {
    * below {@code minPressure} and will turn off when the pressure reaches {@code maxPressure}.
    *
    * @param minPressure The minimum pressure in PSI. The compressor will turn on when the pressure
-   *     drops below this value.
+   *     drops below this value. Range 0-120 PSI.
    * @param maxPressure The maximum pressure in PSI. The compressor will turn off when the pressure
-   *     reaches this value.
+   *     reaches this value. Range 0-120 PSI. Must be larger then minPressure.
    */
   @Override
   public void enableCompressorAnalog(double minPressure, double maxPressure) {
@@ -294,6 +289,10 @@ public class PneumaticHub implements PneumaticsBase {
       throw new IllegalArgumentException(
           "maxPressure must be between 0 and 120 PSI, got " + maxPressure);
     }
+
+    // Send the voltage as it would be if the 5V rail was at exactly 5V.
+    // The firmware will compensate for the real 5V rail voltage, which
+    // can fluctuate somewhat over time.
     double minAnalogVoltage = psiToVolts(minPressure, 5);
     double maxAnalogVoltage = psiToVolts(maxPressure, 5);
     REVPHJNI.setClosedLoopControlAnalog(m_handle, minAnalogVoltage, maxAnalogVoltage);
@@ -320,10 +319,11 @@ public class PneumaticHub implements PneumaticsBase {
    * </ul>
    *
    * @param minPressure The minimum pressure in PSI. The compressor will turn on when the pressure
-   *     drops below this value and the pressure switch indicates that the system is not full.
+   *     drops below this value and the pressure switch indicates that the system is not full. Range
+   *     0-120 PSI.
    * @param maxPressure The maximum pressure in PSI. The compressor will turn off when the pressure
    *     reaches this value or the pressure switch is disconnected or indicates that the system is
-   *     full.
+   *     full. Range 0-120 PSI. Must be larger then minPressure.
    */
   @Override
   public void enableCompressorHybrid(double minPressure, double maxPressure) {
@@ -338,6 +338,10 @@ public class PneumaticHub implements PneumaticsBase {
       throw new IllegalArgumentException(
           "maxPressure must be between 0 and 120 PSI, got " + maxPressure);
     }
+
+    // Send the voltage as it would be if the 5V rail was at exactly 5V.
+    // The firmware will compensate for the real 5V rail voltage, which
+    // can fluctuate somewhat over time.
     double minAnalogVoltage = psiToVolts(minPressure, 5);
     double maxAnalogVoltage = psiToVolts(maxPressure, 5);
     REVPHJNI.setClosedLoopControlHybrid(m_handle, minAnalogVoltage, maxAnalogVoltage);

@@ -4,12 +4,13 @@
 
 #include <cmath>
 
+#include <gtest/gtest.h>
+
 #include "frc/MathUtil.h"
 #include "frc/controller/LTVDifferentialDriveController.h"
 #include "frc/system/NumericalIntegration.h"
 #include "frc/system/plant/LinearSystemId.h"
 #include "frc/trajectory/TrajectoryGenerator.h"
-#include "gtest/gtest.h"
 #include "units/math.h"
 
 #define EXPECT_NEAR_UNITS(val1, val2, eps) \
@@ -61,7 +62,7 @@ frc::Vectord<5> Dynamics(const frc::Vectord<5>& x, const frc::Vectord<2>& u) {
 }
 
 TEST(LTVDifferentialDriveControllerTest, ReachesReference) {
-  constexpr auto kDt = 0.02_s;
+  constexpr units::second_t kDt = 20_ms;
 
   frc::LTVDifferentialDriveController controller{
       plant, kTrackwidth, {0.0625, 0.125, 2.5, 0.95, 0.95}, {12.0, 12.0}, kDt};

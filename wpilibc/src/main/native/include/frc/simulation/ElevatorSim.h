@@ -17,28 +17,35 @@ namespace frc::sim {
 /**
  * Represents a simulated elevator mechanism.
  */
-class ElevatorSim : public LinearSystemSim<2, 1, 1> {
+class ElevatorSim : public LinearSystemSim<2, 1, 2> {
  public:
+  template <typename Distance>
+  using Velocity_t = units::unit_t<
+      units::compound_unit<Distance, units::inverse<units::seconds>>>;
+
+  template <typename Distance>
+  using Acceleration_t = units::unit_t<units::compound_unit<
+      units::compound_unit<Distance, units::inverse<units::seconds>>,
+      units::inverse<units::seconds>>>;
+
   /**
    * Constructs a simulated elevator mechanism.
    *
    * @param plant              The linear system that represents the elevator.
+   *                           This system can be created with
+   *                           LinearSystemId::ElevatorSystem().
    * @param gearbox            The type of and number of motors in your
    *                           elevator gearbox.
-   * @param gearing            The gearing of the elevator (numbers greater
-   *                           than 1 represent reductions).
-   * @param drumRadius         The radius of the drum that your cable is
-   *                           wrapped around.
    * @param minHeight          The minimum allowed height of the elevator.
    * @param maxHeight          The maximum allowed height of the elevator.
    * @param simulateGravity    Whether gravity should be simulated or not.
+   * @param startingHeight     The starting height of the elevator.
    * @param measurementStdDevs The standard deviation of the measurements.
    */
-  ElevatorSim(const LinearSystem<2, 1, 1>& plant, const DCMotor& gearbox,
-              double gearing, units::meter_t drumRadius,
+  ElevatorSim(const LinearSystem<2, 1, 2>& plant, const DCMotor& gearbox,
               units::meter_t minHeight, units::meter_t maxHeight,
-              bool simulateGravity,
-              const std::array<double, 1>& measurementStdDevs = {0.0});
+              bool simulateGravity, units::meter_t startingHeight,
+              const std::array<double, 2>& measurementStdDevs = {0.0, 0.0});
 
   /**
    * Constructs a simulated elevator mechanism.
@@ -53,13 +60,46 @@ class ElevatorSim : public LinearSystemSim<2, 1, 1> {
    * @param minHeight          The minimum allowed height of the elevator.
    * @param maxHeight          The maximum allowed height of the elevator.
    * @param simulateGravity    Whether gravity should be simulated or not.
+   * @param startingHeight     The starting height of the elevator.
    * @param measurementStdDevs The standard deviation of the measurements.
    */
   ElevatorSim(const DCMotor& gearbox, double gearing,
               units::kilogram_t carriageMass, units::meter_t drumRadius,
               units::meter_t minHeight, units::meter_t maxHeight,
-              bool simulateGravity,
-              const std::array<double, 1>& measurementStdDevs = {0.0});
+              bool simulateGravity, units::meter_t startingHeight,
+              const std::array<double, 2>& measurementStdDevs = {0.0, 0.0});
+
+  /**
+   * Constructs a simulated elevator mechanism.
+   *
+   * @param kV                 The velocity gain.
+   * @param kA                 The acceleration gain.
+   * @param gearbox            The type of and number of motors in your
+   *                           elevator gearbox.
+   * @param minHeight          The minimum allowed height of the elevator.
+   * @param maxHeight          The maximum allowed height of the elevator.
+   * @param simulateGravity    Whether gravity should be simulated or not.
+   * @param startingHeight     The starting height of the elevator.
+   * @param measurementStdDevs The standard deviation of the measurements.
+   */
+  template <typename Distance>
+    requires std::same_as<units::meter, Distance> ||
+             std::same_as<units::radian, Distance>
+  ElevatorSim(decltype(1_V / Velocity_t<Distance>(1)) kV,
+              decltype(1_V / Acceleration_t<Distance>(1)) kA,
+              const DCMotor& gearbox, units::meter_t minHeight,
+              units::meter_t maxHeight, bool simulateGravity,
+              units::meter_t startingHeight,
+              const std::array<double, 2>& measurementStdDevs = {0.0, 0.0});
+  using LinearSystemSim::SetState;
+
+  /**
+   * Sets the elevator's state. The new position will be limited between the
+   * minimum and maximum allowed heights.
+   * @param position The new position
+   * @param velocity The new velocity
+   */
+  void SetState(units::meter_t position, units::meters_per_second_t velocity);
 
   /**
    * Returns whether the elevator would hit the lower limit.
@@ -110,7 +150,7 @@ class ElevatorSim : public LinearSystemSim<2, 1, 1> {
    *
    * @return The elevator current draw.
    */
-  units::ampere_t GetCurrentDraw() const override;
+  units::ampere_t GetCurrentDraw() const;
 
   /**
    * Sets the input voltage for the elevator.
@@ -132,10 +172,8 @@ class ElevatorSim : public LinearSystemSim<2, 1, 1> {
 
  private:
   DCMotor m_gearbox;
-  units::meter_t m_drumRadius;
   units::meter_t m_minHeight;
   units::meter_t m_maxHeight;
-  double m_gearing;
   bool m_simulateGravity;
 };
 }  // namespace frc::sim

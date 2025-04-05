@@ -6,6 +6,7 @@ package edu.wpi.first.hal.simulation;
 
 import edu.wpi.first.hal.JNIWrapper;
 
+/** JNI for encoder data. */
 public class EncoderDataJNI extends JNIWrapper {
   public static native int registerInitializedCallback(
       int index, NotifyCallback callback, boolean initialNotify);
@@ -79,6 +80,15 @@ public class EncoderDataJNI extends JNIWrapper {
 
   public static native void setSamplesToAverage(int index, int samplesToAverage);
 
+  public static native int registerDistancePerPulseCallback(
+      int index, NotifyCallback callback, boolean initialNotify);
+
+  public static native void cancelDistancePerPulseCallback(int index, int uid);
+
+  public static native double getDistancePerPulse(int index);
+
+  public static native void setDistancePerPulse(int index, double distancePerPulse);
+
   public static native void setDistance(int index, double distance);
 
   public static native double getDistance(int index);
@@ -90,4 +100,7 @@ public class EncoderDataJNI extends JNIWrapper {
   public static native void resetData(int index);
 
   public static native int findForChannel(int channel);
+
+  /** Utility class. */
+  private EncoderDataJNI() {}
 }

@@ -4,6 +4,8 @@
 
 #include "wpinet/uv/Process.h"
 
+#include <memory>
+
 #include <wpi/SmallString.h>
 
 #include "wpinet/uv/Loop.h"
@@ -13,6 +15,10 @@ namespace wpi::uv {
 
 std::shared_ptr<Process> Process::SpawnArray(Loop& loop, std::string_view file,
                                              std::span<const Option> options) {
+  if (loop.IsClosing()) {
+    return nullptr;
+  }
+
   // convert Option array to libuv structure
   uv_process_options_t coptions;
 

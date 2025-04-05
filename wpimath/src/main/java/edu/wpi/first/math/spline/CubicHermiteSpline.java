@@ -4,11 +4,31 @@
 
 package edu.wpi.first.math.spline;
 
+import edu.wpi.first.math.spline.proto.CubicHermiteSplineProto;
+import edu.wpi.first.math.spline.struct.CubicHermiteSplineStruct;
+import edu.wpi.first.util.protobuf.ProtobufSerializable;
+import edu.wpi.first.util.struct.StructSerializable;
 import org.ejml.simple.SimpleMatrix;
 
-public class CubicHermiteSpline extends Spline {
+/** Represents a hermite spline of degree 3. */
+public class CubicHermiteSpline extends Spline implements ProtobufSerializable, StructSerializable {
   private static SimpleMatrix hermiteBasis;
   private final SimpleMatrix m_coefficients;
+
+  /** The control vector for the initial point in the x dimension. DO NOT MODIFY THIS ARRAY! */
+  public final double[] xInitialControlVector;
+
+  /** The control vector for the final point in the x dimension. DO NOT MODIFY THIS ARRAY! */
+  public final double[] xFinalControlVector;
+
+  /** The control vector for the initial point in the y dimension. DO NOT MODIFY THIS ARRAY! */
+  public final double[] yInitialControlVector;
+
+  /** The control vector for the final point in the y dimension. DO NOT MODIFY THIS ARRAY! */
+  public final double[] yFinalControlVector;
+
+  private final ControlVector m_initialControlVector;
+  private final ControlVector m_finalControlVector;
 
   /**
    * Constructs a cubic hermite spline with the specified control vectors. Each control vector
@@ -19,12 +39,17 @@ public class CubicHermiteSpline extends Spline {
    * @param yInitialControlVector The control vector for the initial point in the y dimension.
    * @param yFinalControlVector The control vector for the final point in the y dimension.
    */
+  @SuppressWarnings("PMD.ArrayIsStoredDirectly")
   public CubicHermiteSpline(
       double[] xInitialControlVector,
       double[] xFinalControlVector,
       double[] yInitialControlVector,
       double[] yFinalControlVector) {
     super(3);
+    this.xInitialControlVector = xInitialControlVector;
+    this.xFinalControlVector = xFinalControlVector;
+    this.yInitialControlVector = yInitialControlVector;
+    this.yFinalControlVector = yFinalControlVector;
 
     // Populate the coefficients for the actual spline equations.
     // Row 0 is x coefficients
@@ -60,6 +85,10 @@ public class CubicHermiteSpline extends Spline {
       m_coefficients.set(4, i, m_coefficients.get(2, i) * (2 - i));
       m_coefficients.set(5, i, m_coefficients.get(3, i) * (2 - i));
     }
+
+    // Assign member variables.
+    m_initialControlVector = new ControlVector(xInitialControlVector, yInitialControlVector);
+    m_finalControlVector = new ControlVector(xFinalControlVector, yFinalControlVector);
   }
 
   /**
@@ -68,8 +97,28 @@ public class CubicHermiteSpline extends Spline {
    * @return The coefficients matrix.
    */
   @Override
-  protected SimpleMatrix getCoefficients() {
+  public SimpleMatrix getCoefficients() {
     return m_coefficients;
+  }
+
+  /**
+   * Returns the initial control vector that created this spline.
+   *
+   * @return The initial control vector that created this spline.
+   */
+  @Override
+  public ControlVector getInitialControlVector() {
+    return m_initialControlVector;
+  }
+
+  /**
+   * Returns the final control vector that created this spline.
+   *
+   * @return The final control vector that created this spline.
+   */
+  @Override
+  public ControlVector getFinalControlVector() {
+    return m_finalControlVector;
   }
 
   /**
@@ -77,6 +126,7 @@ public class CubicHermiteSpline extends Spline {
    *
    * @return The hermite basis matrix for cubic hermite spline interpolation.
    */
+  @SuppressWarnings("PMD.UnnecessaryVarargsArrayCreation")
   private SimpleMatrix makeHermiteBasis() {
     if (hermiteBasis == null) {
       // Given P(i), P'(i), P(i+1), P'(i+1), the control vectors, we want to find
@@ -120,9 +170,10 @@ public class CubicHermiteSpline extends Spline {
    * @param finalVector The control vector for the final point.
    * @return The control vector matrix for a dimension.
    */
+  @SuppressWarnings("PMD.UnnecessaryVarargsArrayCreation")
   private SimpleMatrix getControlVectorFromArrays(double[] initialVector, double[] finalVector) {
-    if (initialVector.length != 2 || finalVector.length != 2) {
-      throw new IllegalArgumentException("Size of vectors must be 2");
+    if (initialVector.length < 2 || finalVector.length < 2) {
+      throw new IllegalArgumentException("Size of vectors must be 2 or greater.");
     }
     return new SimpleMatrix(
         4,
@@ -133,4 +184,10 @@ public class CubicHermiteSpline extends Spline {
           finalVector[0], finalVector[1]
         });
   }
+
+  /** CubicHermiteSpline struct for serialization. */
+  public static final CubicHermiteSplineProto proto = new CubicHermiteSplineProto();
+
+  /** CubicHermiteSpline protobuf for serialization. */
+  public static final CubicHermiteSplineStruct struct = new CubicHermiteSplineStruct();
 }

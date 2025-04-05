@@ -39,14 +39,6 @@ constexpr int32_t kExpectedLoopTiming = 40;
  * devices.
  */
 constexpr float kDefaultPwmPeriod = 5.05f;
-/**
- * kDefaultPwmCenter is the PWM range center in ms
- */
-constexpr float kDefaultPwmCenter = 1.5f;
-/**
- * kDefaultPWMStepsDown is the number of PWM steps below the centerpoint
- */
-constexpr int32_t kDefaultPwmStepsDown = 1000;
 constexpr int32_t kPwmDisabled = 0;
 
 struct DigitalPort {
@@ -58,6 +50,7 @@ struct DigitalPort {
   int32_t centerPwm = 0;
   int32_t deadbandMinPwm = 0;
   int32_t minPwm = 0;
+  int32_t filterIndex = 0;
   std::string previousAllocation;
 };
 

@@ -16,11 +16,16 @@ package edu.wpi.first.hal;
  * edu.wpi.first.wpilibj.ADXRS450_Gyro} for an example implementation.
  */
 public class SimDevice implements AutoCloseable {
+  /** Sim device direction. */
   public enum Direction {
+    /** Input direction for simulation devices. */
     kInput(SimDeviceJNI.kInput),
+    /** Output direction for simulation devices. */
     kOutput(SimDeviceJNI.kOutput),
+    /** Bidirectional direction for simulation devices. */
     kBidir(SimDeviceJNI.kBidir);
 
+    /** The native value of this Direction. */
     public final int m_value;
 
     Direction(int value) {
@@ -32,8 +37,11 @@ public class SimDevice implements AutoCloseable {
    * Creates a simulated device.
    *
    * <p>The device name must be unique. Returns null if the device name already exists. If multiple
-   * instances of the same device are desired, recommend appending the instance/unique identifer in
+   * instances of the same device are desired, recommend appending the instance/unique identifier in
    * brackets to the base name, e.g. "device[1]".
+   *
+   * <p>Using a device name of the form "Type:Name" will create a WebSockets node with a type value
+   * of "Type" and a device value of "Name"
    *
    * <p>null is returned if not in simulation.
    *
@@ -55,6 +63,9 @@ public class SimDevice implements AutoCloseable {
    * convenience method that appends index in brackets to the device name, e.g. passing index=1
    * results in "device[1]" for the device name.
    *
+   * <p>Using a device name of the form "Type:Name" will create a WebSockets node with a type value
+   * of "Type" and a device value of "Name"
+   *
    * <p>null is returned if not in simulation.
    *
    * @param name device name
@@ -71,6 +82,9 @@ public class SimDevice implements AutoCloseable {
    * <p>The device name must be unique. Returns null if the device name already exists. This is a
    * convenience method that appends index and channel in brackets to the device name, e.g. passing
    * index=1 and channel=2 results in "device[1,2]" for the device name.
+   *
+   * <p>Using a device name of the form "Type:Name" will create a WebSockets node with a type value
+   * of "Type" and a device value of "Name"
    *
    * <p>null is returned if not in simulation.
    *
@@ -104,6 +118,15 @@ public class SimDevice implements AutoCloseable {
    */
   public int getNativeHandle() {
     return m_handle;
+  }
+
+  /**
+   * Get the name of the simulated device.
+   *
+   * @return the name
+   */
+  public String getName() {
+    return SimDeviceJNI.getSimDeviceName(m_handle);
   }
 
   /**

@@ -6,7 +6,6 @@ package edu.wpi.first.wpilibj;
 
 import edu.wpi.first.cameraserver.CameraServerShared;
 import edu.wpi.first.cameraserver.CameraServerSharedStore;
-import edu.wpi.first.cscore.CameraServerJNI;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
@@ -15,7 +14,9 @@ import edu.wpi.first.math.MathShared;
 import edu.wpi.first.math.MathSharedStore;
 import edu.wpi.first.math.MathUsageId;
 import edu.wpi.first.networktables.MultiSubscriber;
+import edu.wpi.first.networktables.NetworkTableEvent;
 import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.util.WPIUtilJNI;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.util.WPILibVersion;
@@ -28,11 +29,13 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
- * Implement a Robot Program framework. The RobotBase class is intended to be subclassed by a user
- * creating a robot program. Overridden autonomous() and operatorControl() methods are called at the
- * appropriate time as the match proceeds. In the current implementation, the Autonomous code will
- * run to completion before the OperatorControl code could start. In the future the Autonomous code
- * might be spawned as a task, then killed at the end of the Autonomous period.
+ * Implement a Robot Program framework. The RobotBase class is intended to be subclassed to create a
+ * robot program. The user must implement {@link #startCompetition()}, which will be called once and
+ * is not expected to exit. The user must also implement {@link #endCompetition()}, which signals to
+ * the code in {@link #startCompetition()} that it should exit.
+ *
+ * <p>It is not recommended to subclass this class directly - instead subclass IterativeRobotBase or
+ * TimedRobot.
  */
 public abstract class RobotBase implements AutoCloseable {
   /** The ID of the main Java thread. */
@@ -40,6 +43,10 @@ public abstract class RobotBase implements AutoCloseable {
   private static long m_threadId = -1;
 
   private final MultiSubscriber m_suball;
+
+  private final int m_connListenerHandle;
+
+  private boolean m_dashboardDetected;
 
   private static void setupCameraServerShared() {
     CameraServerShared shared =
@@ -71,7 +78,7 @@ public abstract class RobotBase implements AutoCloseable {
 
           @Override
           public boolean isRoboRIO() {
-            return RobotBase.isReal();
+            return !RobotBase.isSimulation();
           }
         };
 
@@ -89,52 +96,46 @@ public abstract class RobotBase implements AutoCloseable {
           @Override
           public void reportUsage(MathUsageId id, int count) {
             switch (id) {
-              case kKinematics_DifferentialDrive:
-                HAL.report(
-                    tResourceType.kResourceType_Kinematics,
-                    tInstances.kKinematics_DifferentialDrive);
-                break;
-              case kKinematics_MecanumDrive:
-                HAL.report(
-                    tResourceType.kResourceType_Kinematics, tInstances.kKinematics_MecanumDrive);
-                break;
-              case kKinematics_SwerveDrive:
-                HAL.report(
-                    tResourceType.kResourceType_Kinematics, tInstances.kKinematics_SwerveDrive);
-                break;
-              case kTrajectory_TrapezoidProfile:
-                HAL.report(tResourceType.kResourceType_TrapezoidProfile, count);
-                break;
-              case kFilter_Linear:
-                HAL.report(tResourceType.kResourceType_LinearFilter, count);
-                break;
-              case kOdometry_DifferentialDrive:
-                HAL.report(
-                    tResourceType.kResourceType_Odometry, tInstances.kOdometry_DifferentialDrive);
-                break;
-              case kOdometry_SwerveDrive:
-                HAL.report(tResourceType.kResourceType_Odometry, tInstances.kOdometry_SwerveDrive);
-                break;
-              case kOdometry_MecanumDrive:
-                HAL.report(tResourceType.kResourceType_Odometry, tInstances.kOdometry_MecanumDrive);
-                break;
-              case kController_PIDController2:
-                HAL.report(tResourceType.kResourceType_PIDController2, count);
-                break;
-              case kController_ProfiledPIDController:
-                HAL.report(tResourceType.kResourceType_ProfiledPIDController, count);
-                break;
-              default:
-                break;
+              case kKinematics_DifferentialDrive -> HAL.report(
+                  tResourceType.kResourceType_Kinematics, tInstances.kKinematics_DifferentialDrive);
+              case kKinematics_MecanumDrive -> HAL.report(
+                  tResourceType.kResourceType_Kinematics, tInstances.kKinematics_MecanumDrive);
+              case kKinematics_SwerveDrive -> HAL.report(
+                  tResourceType.kResourceType_Kinematics, tInstances.kKinematics_SwerveDrive);
+              case kTrajectory_TrapezoidProfile -> HAL.report(
+                  tResourceType.kResourceType_TrapezoidProfile, count);
+              case kFilter_Linear -> HAL.report(tResourceType.kResourceType_LinearFilter, count);
+              case kOdometry_DifferentialDrive -> HAL.report(
+                  tResourceType.kResourceType_Odometry, tInstances.kOdometry_DifferentialDrive);
+              case kOdometry_SwerveDrive -> HAL.report(
+                  tResourceType.kResourceType_Odometry, tInstances.kOdometry_SwerveDrive);
+              case kOdometry_MecanumDrive -> HAL.report(
+                  tResourceType.kResourceType_Odometry, tInstances.kOdometry_MecanumDrive);
+              case kController_PIDController2 -> HAL.report(
+                  tResourceType.kResourceType_PIDController2, count);
+              case kController_ProfiledPIDController -> HAL.report(
+                  tResourceType.kResourceType_ProfiledPIDController, count);
+              case kController_BangBangController -> HAL.report(
+                  tResourceType.kResourceType_BangBangController, count);
+              case kTrajectory_PathWeaver -> HAL.report(
+                  tResourceType.kResourceType_PathWeaverTrajectory, count);
+              default -> {
+                // NOP
+              }
             }
+          }
+
+          @Override
+          public double getTimestamp() {
+            return Timer.getTimestamp();
           }
         });
   }
 
   /**
-   * Constructor for a generic robot program. User code should be placed in the constructor that
-   * runs before the Autonomous or Operator Control period starts. The constructor will run to
-   * completion before Autonomous is entered.
+   * Constructor for a generic robot program. User code can be placed in the constructor that runs
+   * before the Autonomous or Operator Control period starts. The constructor will run to completion
+   * before Autonomous is entered.
    *
    * <p>This must be used to ensure that the communications code starts. In the future it would be
    * nice to put this code into its own task that loads on boot so ensure that it runs.
@@ -146,7 +147,7 @@ public abstract class RobotBase implements AutoCloseable {
     setupMathShared();
     // subscribe to "" to force persistent values to propagate to local
     m_suball = new MultiSubscriber(inst, new String[] {""});
-    if (isReal()) {
+    if (!isSimulation()) {
       inst.startServer("/home/lvuser/networktables.json");
     } else {
       inst.startServer();
@@ -166,10 +167,74 @@ public abstract class RobotBase implements AutoCloseable {
       System.err.println("timed out while waiting for NT server to start");
     }
 
+    m_connListenerHandle =
+        inst.addConnectionListener(
+            false,
+            event -> {
+              if (event.is(NetworkTableEvent.Kind.kConnected)) {
+                if (event.connInfo.remote_id.startsWith("glass")) {
+                  HAL.report(tResourceType.kResourceType_Dashboard, tInstances.kDashboard_Glass);
+                  m_dashboardDetected = true;
+                } else if (event.connInfo.remote_id.startsWith("SmartDashboard")) {
+                  HAL.report(
+                      tResourceType.kResourceType_Dashboard, tInstances.kDashboard_SmartDashboard);
+                  m_dashboardDetected = true;
+                } else if (event.connInfo.remote_id.startsWith("shuffleboard")) {
+                  HAL.report(
+                      tResourceType.kResourceType_Dashboard, tInstances.kDashboard_Shuffleboard);
+                  m_dashboardDetected = true;
+                } else if (event.connInfo.remote_id.startsWith("elastic")
+                    || event.connInfo.remote_id.startsWith("Elastic")) {
+                  HAL.report(tResourceType.kResourceType_Dashboard, tInstances.kDashboard_Elastic);
+                  m_dashboardDetected = true;
+                } else if (event.connInfo.remote_id.startsWith("Dashboard")) {
+                  HAL.report(tResourceType.kResourceType_Dashboard, tInstances.kDashboard_LabVIEW);
+                  m_dashboardDetected = true;
+                } else if (event.connInfo.remote_id.startsWith("AdvantageScope")) {
+                  HAL.report(
+                      tResourceType.kResourceType_Dashboard, tInstances.kDashboard_AdvantageScope);
+                  m_dashboardDetected = true;
+                } else if (event.connInfo.remote_id.startsWith("QFRCDashboard")) {
+                  HAL.report(
+                      tResourceType.kResourceType_Dashboard, tInstances.kDashboard_QFRCDashboard);
+                  m_dashboardDetected = true;
+                } else if (event.connInfo.remote_id.startsWith("FRC Web Components")) {
+                  HAL.report(
+                      tResourceType.kResourceType_Dashboard,
+                      tInstances.kDashboard_FRCWebComponents);
+                  m_dashboardDetected = true;
+                } else {
+                  // Only report unknown if there wasn't another dashboard already reported
+                  // (unknown could also be another device)
+                  if (!m_dashboardDetected) {
+                    int delim = event.connInfo.remote_id.indexOf('@');
+                    if (delim != -1) {
+                      HAL.report(
+                          tResourceType.kResourceType_Dashboard,
+                          tInstances.kDashboard_Unknown,
+                          0,
+                          event.connInfo.remote_id.substring(0, delim));
+                    } else {
+                      HAL.report(
+                          tResourceType.kResourceType_Dashboard,
+                          tInstances.kDashboard_Unknown,
+                          0,
+                          event.connInfo.remote_id);
+                    }
+                  }
+                }
+              }
+            });
+
     LiveWindow.setEnabled(false);
     Shuffleboard.disableActuatorWidgets();
   }
 
+  /**
+   * Returns the main thread ID.
+   *
+   * @return The main thread ID.
+   */
   public static long getMainThreadId() {
     return m_threadId;
   }
@@ -177,6 +242,7 @@ public abstract class RobotBase implements AutoCloseable {
   @Override
   public void close() {
     m_suball.close();
+    NetworkTableInstance.getDefault().removeListener(m_connListenerHandle);
   }
 
   /**
@@ -194,7 +260,7 @@ public abstract class RobotBase implements AutoCloseable {
    * @return If the robot is running in simulation.
    */
   public static boolean isSimulation() {
-    return !isReal();
+    return getRuntimeType() == RuntimeType.kSimulation;
   }
 
   /**
@@ -210,7 +276,7 @@ public abstract class RobotBase implements AutoCloseable {
   /**
    * Determine if the Robot is currently disabled.
    *
-   * @return True if the Robot is currently disabled by the field controls.
+   * @return True if the Robot is currently disabled by the Driver Station.
    */
   public boolean isDisabled() {
     return DriverStation.isDisabled();
@@ -219,14 +285,14 @@ public abstract class RobotBase implements AutoCloseable {
   /**
    * Determine if the Robot is currently enabled.
    *
-   * @return True if the Robot is currently enabled by the field controls.
+   * @return True if the Robot is currently enabled by the Driver Station.
    */
   public boolean isEnabled() {
     return DriverStation.isEnabled();
   }
 
   /**
-   * Determine if the robot is currently in Autonomous mode as determined by the field controls.
+   * Determine if the robot is currently in Autonomous mode as determined by the Driver Station.
    *
    * @return True if the robot is currently operating Autonomously.
    */
@@ -235,8 +301,8 @@ public abstract class RobotBase implements AutoCloseable {
   }
 
   /**
-   * Determine if the robot is current in Autonomous mode and enabled as determined by the field
-   * controls.
+   * Determine if the robot is currently in Autonomous mode and enabled as determined by the Driver
+   * Station.
    *
    * @return True if the robot is currently operating autonomously while enabled.
    */
@@ -245,7 +311,7 @@ public abstract class RobotBase implements AutoCloseable {
   }
 
   /**
-   * Determine if the robot is currently in Test mode as determined by the driver station.
+   * Determine if the robot is currently in Test mode as determined by the Driver Station.
    *
    * @return True if the robot is currently operating in Test mode.
    */
@@ -254,8 +320,17 @@ public abstract class RobotBase implements AutoCloseable {
   }
 
   /**
-   * Determine if the robot is currently in Operator Control mode as determined by the field
-   * controls.
+   * Determine if the robot is current in Test mode and enabled as determined by the Driver Station.
+   *
+   * @return True if the robot is currently operating in Test mode while enabled.
+   */
+  public boolean isTestEnabled() {
+    return DriverStation.isTestEnabled();
+  }
+
+  /**
+   * Determine if the robot is currently in Operator Control mode as determined by the Driver
+   * Station.
    *
    * @return True if the robot is currently operating in Tele-Op mode.
    */
@@ -264,8 +339,8 @@ public abstract class RobotBase implements AutoCloseable {
   }
 
   /**
-   * Determine if the robot is current in Operator Control mode and enabled as determined by the
-   * field controls.
+   * Determine if the robot is currently in Operator Control mode and enabled as determined by the
+   * Driver Station.
    *
    * @return True if the robot is currently operating in Tele-Op mode while enabled.
    */
@@ -273,10 +348,13 @@ public abstract class RobotBase implements AutoCloseable {
     return DriverStation.isTeleopEnabled();
   }
 
-  /** Provide an alternate "main loop" via startCompetition(). */
+  /**
+   * Start the main robot code. This function will be called once and should not exit until
+   * signalled by {@link #endCompetition()}
+   */
   public abstract void startCompetition();
 
-  /** Ends the main loop in startCompetition(). */
+  /** Ends the main loop in {@link #startCompetition()}. */
   public abstract void endCompetition();
 
   private static final ReentrantLock m_runMutex = new ReentrantLock();
@@ -301,8 +379,7 @@ public abstract class RobotBase implements AutoCloseable {
         robotName = elements[0].getClassName();
       }
       DriverStation.reportError(
-          "Unhandled exception instantiating robot " + robotName + " " + throwable.toString(),
-          elements);
+          "Unhandled exception instantiating robot " + robotName + " " + throwable, elements);
       DriverStation.reportError(
           "The robot program quit unexpectedly."
               + " This is usually due to a code error.\n"
@@ -317,7 +394,7 @@ public abstract class RobotBase implements AutoCloseable {
     m_robotCopy = robot;
     m_runMutex.unlock();
 
-    if (isReal()) {
+    if (!isSimulation()) {
       final File file = new File("/tmp/frc_versions/FRC_Lib_Version.ini");
       try {
         if (file.exists() && !file.delete()) {
@@ -333,8 +410,7 @@ public abstract class RobotBase implements AutoCloseable {
           output.write(WPILibVersion.Version.getBytes(StandardCharsets.UTF_8));
         }
       } catch (IOException ex) {
-        DriverStation.reportError(
-            "Could not write FRC_Lib_Version.ini: " + ex.toString(), ex.getStackTrace());
+        DriverStation.reportError("Could not write FRC_Lib_Version.ini: " + ex, ex.getStackTrace());
       }
     }
 
@@ -346,8 +422,7 @@ public abstract class RobotBase implements AutoCloseable {
       if (cause != null) {
         throwable = cause;
       }
-      DriverStation.reportError(
-          "Unhandled exception: " + throwable.toString(), throwable.getStackTrace());
+      DriverStation.reportError("Unhandled exception: " + throwable, throwable.getStackTrace());
       errorOnExit = true;
     } finally {
       m_runMutex.lock();
@@ -391,13 +466,15 @@ public abstract class RobotBase implements AutoCloseable {
    * @param robotSupplier Function that returns an instance of the robot subclass.
    */
   public static <T extends RobotBase> void startRobot(Supplier<T> robotSupplier) {
+    // Check that the MSVC runtime is valid.
+    WPIUtilJNI.checkMsvcRuntime();
+
     if (!HAL.initialize(500, 0)) {
       throw new IllegalStateException("Failed to initialize. Terminating");
     }
 
-    // Call a CameraServer JNI function to force OpenCV native library loading
-    // Needed because all the OpenCV JNI functions don't have built in loading
-    CameraServerJNI.enumerateSinks();
+    // Force refresh DS data
+    DriverStation.refreshData();
 
     HAL.report(
         tResourceType.kResourceType_Language, tInstances.kLanguage_Java, 0, WPILibVersion.Version);
@@ -432,6 +509,11 @@ public abstract class RobotBase implements AutoCloseable {
     } else {
       runRobot(robotSupplier);
     }
+
+    // On RIO, this will just terminate rather than shutting down cleanly (it's a no-op in sim).
+    // It's not worth the risk of hanging on shutdown when we want the code to restart as quickly
+    // as possible.
+    HAL.terminate();
 
     HAL.shutdown();
 

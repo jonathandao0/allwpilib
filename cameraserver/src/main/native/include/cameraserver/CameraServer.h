@@ -9,8 +9,10 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
-#include "cscore.h"
+#include <wpi/deprecated.h>
+
 #include "cscore_cv.h"
 
 namespace frc {
@@ -22,10 +24,8 @@ namespace frc {
  */
 class CameraServer {
  public:
+  /// CameraServer base port.
   static constexpr uint16_t kBasePort = 1181;
-  static constexpr int kSize640x480 = 0;
-  static constexpr int kSize320x240 = 1;
-  static constexpr int kSize160x120 = 2;
 
   /**
    * Start automatically capturing images to send to the dashboard.
@@ -75,13 +75,16 @@ class CameraServer {
    */
   static cs::MjpegServer StartAutomaticCapture(const cs::VideoSource& camera);
 
+  WPI_IGNORE_DEPRECATED
   /**
    * Adds an Axis IP camera.
    *
    * This overload calls AddAxisCamera() with name "Axis Camera".
    *
    * @param host Camera host IP or DNS name (e.g. "10.x.y.11")
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(std::string_view host);
 
   /**
@@ -90,7 +93,9 @@ class CameraServer {
    * This overload calls AddAxisCamera() with name "Axis Camera".
    *
    * @param host Camera host IP or DNS name (e.g. "10.x.y.11")
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(const char* host);
 
   /**
@@ -99,7 +104,9 @@ class CameraServer {
    * This overload calls AddAxisCamera() with name "Axis Camera".
    *
    * @param host Camera host IP or DNS name (e.g. "10.x.y.11")
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(const std::string& host);
 
   /**
@@ -108,7 +115,9 @@ class CameraServer {
    * This overload calls AddAxisCamera() with name "Axis Camera".
    *
    * @param hosts Array of Camera host IPs/DNS names
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(std::span<const std::string> hosts);
 
   /**
@@ -117,16 +126,22 @@ class CameraServer {
    * This overload calls AddAxisCamera() with name "Axis Camera".
    *
    * @param hosts Array of Camera host IPs/DNS names
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
   template <typename T>
-  static cs::AxisCamera AddAxisCamera(std::initializer_list<T> hosts);
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
+  static cs::AxisCamera AddAxisCamera(std::initializer_list<T> hosts) {
+    return AddAxisCamera("Axis Camera", hosts);
+  }
 
   /**
    * Adds an Axis IP camera.
    *
    * @param name The name to give the camera
    * @param host Camera host IP or DNS name (e.g. "10.x.y.11")
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(std::string_view name,
                                       std::string_view host);
 
@@ -135,7 +150,9 @@ class CameraServer {
    *
    * @param name The name to give the camera
    * @param host Camera host IP or DNS name (e.g. "10.x.y.11")
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(std::string_view name, const char* host);
 
   /**
@@ -143,7 +160,9 @@ class CameraServer {
    *
    * @param name The name to give the camera
    * @param host Camera host IP or DNS name (e.g. "10.x.y.11")
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(std::string_view name,
                                       const std::string& host);
 
@@ -152,7 +171,9 @@ class CameraServer {
    *
    * @param name The name to give the camera
    * @param hosts Array of Camera host IPs/DNS names
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(std::string_view name,
                                       std::span<const std::string> hosts);
 
@@ -161,10 +182,20 @@ class CameraServer {
    *
    * @param name The name to give the camera
    * @param hosts Array of Camera host IPs/DNS names
+   * @deprecated Call StartAutomaticCapture with a HttpCamera instead.
    */
   template <typename T>
+  [[deprecated("Call StartAutomaticCapture with a HttpCamera instead.")]]
   static cs::AxisCamera AddAxisCamera(std::string_view name,
-                                      std::initializer_list<T> hosts);
+                                      std::initializer_list<T> hosts) {
+    std::vector<std::string> vec;
+    vec.reserve(hosts.size());
+    for (const auto& host : hosts) {
+      vec.emplace_back(host);
+    }
+    return AddAxisCamera(name, vec);
+  }
+  WPI_UNIGNORE_DEPRECATED
 
   /**
    * Adds a virtual camera for switching between two streams.  Unlike the
@@ -195,9 +226,31 @@ class CameraServer {
    * Get OpenCV access to the specified camera.  This allows you to get
    * images from the camera for image processing on the roboRIO.
    *
+   * @param camera Camera (e.g. as returned by startAutomaticCapture).
+   * @param pixelFormat The desired pixelFormat of captured frames from the
+   * camera
+   */
+  static cs::CvSink GetVideo(const cs::VideoSource& camera,
+                             cs::VideoMode::PixelFormat pixelFormat);
+
+  /**
+   * Get OpenCV access to the specified camera.  This allows you to get
+   * images from the camera for image processing on the roboRIO.
+   *
    * @param name Camera name
    */
   static cs::CvSink GetVideo(std::string_view name);
+
+  /**
+   * Get OpenCV access to the specified camera.  This allows you to get
+   * images from the camera for image processing on the roboRIO.
+   *
+   * @param name Camera name
+   * @param pixelFormat The desired pixelFormat of captured frames from the
+   * camera
+   */
+  static cs::CvSink GetVideo(std::string_view name,
+                             cs::VideoMode::PixelFormat pixelFormat);
 
   /**
    * Create a MJPEG stream with OpenCV input. This can be called to pass custom
@@ -267,21 +320,8 @@ class CameraServer {
    */
   static void RemoveCamera(std::string_view name);
 
-  /**
-   * Sets the size of the image to use. Use the public kSize constants to set
-   * the correct mode, or set it directly on a camera and call the appropriate
-   * StartAutomaticCapture method.
-   *
-   * @deprecated Use SetResolution on the UsbCamera returned by
-   *             StartAutomaticCapture() instead.
-   * @param size The size to use
-   */
-  static void SetSize(int size);
-
  private:
   CameraServer() = default;
 };
 
 }  // namespace frc
-
-#include "cameraserver/CameraServer.inc"

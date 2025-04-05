@@ -7,7 +7,6 @@ package edu.wpi.first.wpilibj.examples.motorcontrol;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.motorcontrol.MotorController;
 import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
@@ -27,12 +26,12 @@ public class Robot extends TimedRobot {
   private static final int kEncoderPortA = 0;
   private static final int kEncoderPortB = 1;
 
-  private MotorController m_motor;
-  private Joystick m_joystick;
-  private Encoder m_encoder;
+  private final PWMSparkMax m_motor;
+  private final Joystick m_joystick;
+  private final Encoder m_encoder;
 
-  @Override
-  public void robotInit() {
+  /** Called once at the beginning of the robot program. */
+  public Robot() {
     m_motor = new PWMSparkMax(kMotorPort);
     m_joystick = new Joystick(kJoystickPort);
     m_encoder = new Encoder(kEncoderPortA, kEncoderPortB);
@@ -50,6 +49,7 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("Encoder", m_encoder.getDistance());
   }
 
+  /** The teleop periodic function is called every control packet in teleop. */
   @Override
   public void teleopPeriodic() {
     m_motor.set(m_joystick.getY());

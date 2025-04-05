@@ -4,12 +4,12 @@
 
 #include "frc/simulation/DIOSim.h"  // NOLINT(build/include_order)
 
+#include <gtest/gtest.h>
 #include <hal/HAL.h>
 
 #include "callback_helpers/TestCallbackHelpers.h"
 #include "frc/DigitalInput.h"
 #include "frc/DigitalOutput.h"
-#include "gtest/gtest.h"
 
 namespace frc::sim {
 
@@ -69,12 +69,12 @@ TEST(DIOSimTest, Output) {
   BooleanCallback valueCallback;
 
   auto cb = sim.RegisterValueCallback(valueCallback.GetCallback(), false);
-  EXPECT_FALSE(output.Get());
-  EXPECT_FALSE(sim.GetValue());
+  EXPECT_TRUE(output.Get());
+  EXPECT_TRUE(sim.GetValue());
 
   EXPECT_FALSE(valueCallback.WasTriggered());
-  output.Set(true);
+  output.Set(false);
   EXPECT_TRUE(valueCallback.WasTriggered());
-  EXPECT_TRUE(valueCallback.GetLastValue());
+  EXPECT_FALSE(valueCallback.GetLastValue());
 }
 }  // namespace frc::sim

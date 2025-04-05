@@ -16,11 +16,13 @@
 #include <atomic>
 #include <cstdio>
 #include <cstring>
+#include <exception>
+#include <memory>
 #include <string_view>
 
 #include <DSCommPacket.h>
-#include <fmt/format.h>
 #include <hal/Extensions.h>
+#include <wpi/print.h>
 #include <wpinet/EventLoopRunner.h>
 #include <wpinet/raw_uv_ostream.h>
 #include <wpinet/uv/Tcp.h>
@@ -118,39 +120,51 @@ static void SetupUdp(wpi::uv::Loop& loop) {
   simLoopTimer->timeout.connect([udpLocal = udp.get(), simAddr] {
     udpLocal->Send(simAddr, {singleByte.get(), 1}, [](auto buf, Error err) {
       if (err) {
-        fmt::print(stderr, "{}\n", err.str());
+        wpi::print(stderr, "{}\n", err.str());
         std::fflush(stderr);
       }
     });
   });
   simLoopTimer->Start(Timer::Time{100}, Timer::Time{100});
+  // DS Timeout
+  int timeoutMs = 100;
+  if (auto envTimeout = std::getenv("DS_TIMEOUT_MS")) {
+    try {
+      timeoutMs = std::stoi(envTimeout);
+    } catch (const std::exception& e) {
+      wpi::print(stderr, "Error parsing DS_TIMEOUT_MS: {}\n", e.what());
+    }
+  }
+  auto autoDisableTimer = Timer::Create(loop);
+  autoDisableTimer->timeout.connect([] { HALSIM_SetDriverStationEnabled(0); });
 
   // UDP Receive then send
-  udp->received.connect([udpLocal = udp.get()](Buffer& buf, size_t len,
-                                               const sockaddr& recSock,
-                                               unsigned int port) {
-    auto ds = udpLocal->GetLoop()->GetData<halsim::DSCommPacket>();
-    ds->DecodeUDP({reinterpret_cast<uint8_t*>(buf.base), len});
+  udp->received.connect(
+      [udpLocal = udp.get(), autoDisableTimer, timeoutMs](
+          Buffer& buf, size_t len, const sockaddr& recSock, unsigned int port) {
+        autoDisableTimer->Start(Timer::Time(timeoutMs));
+        auto ds = udpLocal->GetLoop()->GetData<halsim::DSCommPacket>();
+        ds->DecodeUDP({reinterpret_cast<uint8_t*>(buf.base), len});
 
-    struct sockaddr_in outAddr;
-    std::memcpy(&outAddr, &recSock, sizeof(sockaddr_in));
-    outAddr.sin_family = PF_INET;
-    outAddr.sin_port = htons(1150);
+        struct sockaddr_in outAddr;
+        std::memcpy(&outAddr, &recSock, sizeof(sockaddr_in));
+        outAddr.sin_family = PF_INET;
+        outAddr.sin_port = htons(1150);
 
-    wpi::SmallVector<wpi::uv::Buffer, 4> sendBufs;
-    wpi::raw_uv_ostream stream{sendBufs,
-                               [] { return GetBufferPool().Allocate(); }};
-    ds->SetupSendBuffer(stream);
+        wpi::SmallVector<wpi::uv::Buffer, 4> sendBufs;
+        wpi::raw_uv_ostream stream{sendBufs,
+                                   [] { return GetBufferPool().Allocate(); }};
+        ds->SetupSendBuffer(stream);
 
-    udpLocal->Send(outAddr, sendBufs, [](auto bufs, Error err) {
-      GetBufferPool().Release(bufs);
-      if (err) {
-        fmt::print(stderr, "{}\n", err.str());
-        std::fflush(stderr);
-      }
-    });
-    ds->SendUDPToHALSim();
-  });
+        udpLocal->Send(outAddr, sendBufs, [](auto bufs, Error err) {
+          GetBufferPool().Release(bufs);
+          if (err) {
+            wpi::print(stderr, "{}\n", err.str());
+            std::fflush(stderr);
+          }
+        });
+        ds->SendUDPToHALSim();
+      });
 
   udp->StartRecv();
 }

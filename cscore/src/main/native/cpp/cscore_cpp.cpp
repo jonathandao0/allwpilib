@@ -4,13 +4,16 @@
 
 #include "cscore_cpp.h"
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include <wpi/SmallString.h>
 #include <wpi/json.h>
 #include <wpinet/hostname.h>
 
 #include "Handle.h"
 #include "Instance.h"
-#include "Log.h"
 #include "NetworkListener.h"
 #include "Notifier.h"
 #include "PropertyContainer.h"
@@ -439,7 +442,7 @@ void ReleaseSource(CS_Source source, CS_Status* status) {
 }
 
 //
-// Camera Source Common Property Fuctions
+// Camera Source Common Property Functions
 //
 
 void SetCameraBrightness(CS_Source source, int brightness, CS_Status* status) {

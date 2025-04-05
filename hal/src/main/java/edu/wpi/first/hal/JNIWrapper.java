@@ -11,28 +11,38 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Base class for all JNI wrappers. */
 public class JNIWrapper {
   static boolean libraryLoaded = false;
-  static RuntimeLoader<JNIWrapper> loader = null;
 
+  /** Sets whether JNI should be loaded in the static block. */
   public static class Helper {
     private static AtomicBoolean extractOnStaticLoad = new AtomicBoolean(true);
 
+    /**
+     * Returns true if the JNI should be loaded in the static block.
+     *
+     * @return True if the JNI should be loaded in the static block.
+     */
     public static boolean getExtractOnStaticLoad() {
       return extractOnStaticLoad.get();
     }
 
+    /**
+     * Sets whether the JNI should be loaded in the static block.
+     *
+     * @param load Whether the JNI should be loaded in the static block.
+     */
     public static void setExtractOnStaticLoad(boolean load) {
       extractOnStaticLoad.set(load);
     }
+
+    /** Utility class. */
+    private Helper() {}
   }
 
   static {
     if (Helper.getExtractOnStaticLoad()) {
       try {
-        loader =
-            new RuntimeLoader<>(
-                "wpiHaljni", RuntimeLoader.getDefaultExtractionRoot(), JNIWrapper.class);
-        loader.loadLibrary();
-      } catch (IOException ex) {
+        RuntimeLoader.loadLibrary("wpiHaljni");
+      } catch (Exception ex) {
         ex.printStackTrace();
         System.exit(1);
       }
@@ -49,12 +59,17 @@ public class JNIWrapper {
     if (libraryLoaded) {
       return;
     }
-    loader =
-        new RuntimeLoader<>(
-            "wpiHaljni", RuntimeLoader.getDefaultExtractionRoot(), JNIWrapper.class);
-    loader.loadLibrary();
+    RuntimeLoader.loadLibrary("wpiHaljni");
     libraryLoaded = true;
   }
 
+  /**
+   * Dummy function to suppress unused variable warnings.
+   *
+   * @param object variable to suppress
+   */
   public static void suppressUnused(Object object) {}
+
+  /** Utility class. */
+  public JNIWrapper() {}
 }

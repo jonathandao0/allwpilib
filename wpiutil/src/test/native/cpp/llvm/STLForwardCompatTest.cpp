@@ -7,40 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "wpi/STLForwardCompat.h"
+#include "CountCopyAndMove.h"
 #include "gtest/gtest.h"
 
 namespace {
-
-TEST(STLForwardCompatTest, NegationTest) {
-  EXPECT_TRUE((wpi::negation<std::false_type>::value));
-  EXPECT_FALSE((wpi::negation<std::true_type>::value));
-}
-
-struct incomplete_type;
-
-TEST(STLForwardCompatTest, ConjunctionTest) {
-  EXPECT_TRUE((wpi::conjunction<>::value));
-  EXPECT_FALSE((wpi::conjunction<std::false_type>::value));
-  EXPECT_TRUE((wpi::conjunction<std::true_type>::value));
-  EXPECT_FALSE((wpi::conjunction<std::false_type, incomplete_type>::value));
-  EXPECT_FALSE((wpi::conjunction<std::false_type, std::true_type>::value));
-  EXPECT_FALSE((wpi::conjunction<std::true_type, std::false_type>::value));
-  EXPECT_TRUE((wpi::conjunction<std::true_type, std::true_type>::value));
-  EXPECT_TRUE((wpi::conjunction<std::true_type, std::true_type,
-                                 std::true_type>::value));
-}
-
-TEST(STLForwardCompatTest, DisjunctionTest) {
-  EXPECT_FALSE((wpi::disjunction<>::value));
-  EXPECT_FALSE((wpi::disjunction<std::false_type>::value));
-  EXPECT_TRUE((wpi::disjunction<std::true_type>::value));
-  EXPECT_TRUE((wpi::disjunction<std::true_type, incomplete_type>::value));
-  EXPECT_TRUE((wpi::disjunction<std::false_type, std::true_type>::value));
-  EXPECT_TRUE((wpi::disjunction<std::true_type, std::false_type>::value));
-  EXPECT_TRUE((wpi::disjunction<std::true_type, std::true_type>::value));
-  EXPECT_TRUE((wpi::disjunction<std::true_type, std::true_type,
-                                 std::true_type>::value));
-}
 
 template <typename T>
 class STLForwardCompatRemoveCVRefTest : public ::testing::Test {};
@@ -73,6 +43,101 @@ TYPED_TEST(STLForwardCompatRemoveCVRefTest, RemoveCVRefT) {
   using From = typename TypeParam::first_type;
   EXPECT_TRUE((std::is_same<typename wpi::remove_cvref<From>::type,
                             wpi::remove_cvref_t<From>>::value));
+}
+
+TEST(TransformTest, TransformStd) {
+  std::optional<int> A;
+
+  std::optional<int> B = wpi::transformOptional(A, [&](int N) { return N + 1; });
+  EXPECT_FALSE(B.has_value());
+
+  A = 3;
+  std::optional<int> C = wpi::transformOptional(A, [&](int N) { return N + 1; });
+  EXPECT_TRUE(C.has_value());
+  EXPECT_EQ(4, *C);
+}
+
+TEST(TransformTest, MoveTransformStd) {
+  using wpi::CountCopyAndMove;
+
+  std::optional<CountCopyAndMove> A;
+
+  CountCopyAndMove::ResetCounts();
+  std::optional<int> B = wpi::transformOptional(
+      std::move(A), [&](const CountCopyAndMove &M) { return M.val + 2; });
+  EXPECT_FALSE(B.has_value());
+  EXPECT_EQ(0, CountCopyAndMove::TotalCopies());
+  EXPECT_EQ(0, CountCopyAndMove::MoveConstructions);
+  EXPECT_EQ(0, CountCopyAndMove::MoveAssignments);
+  EXPECT_EQ(0, CountCopyAndMove::Destructions);
+
+  A = CountCopyAndMove(5);
+  CountCopyAndMove::ResetCounts();
+  std::optional<int> C = wpi::transformOptional(
+      std::move(A), [&](const CountCopyAndMove &M) { return M.val + 2; });
+  EXPECT_TRUE(C.has_value());
+  EXPECT_EQ(7, *C);
+  EXPECT_EQ(0, CountCopyAndMove::TotalCopies());
+  EXPECT_EQ(0, CountCopyAndMove::MoveConstructions);
+  EXPECT_EQ(0, CountCopyAndMove::MoveAssignments);
+  EXPECT_EQ(0, CountCopyAndMove::Destructions);
+}
+
+TEST(TransformTest, TransformLlvm) {
+  std::optional<int> A;
+
+  std::optional<int> B =
+      wpi::transformOptional(A, [&](int N) { return N + 1; });
+  EXPECT_FALSE(B.has_value());
+
+  A = 3;
+  std::optional<int> C =
+      wpi::transformOptional(A, [&](int N) { return N + 1; });
+  EXPECT_TRUE(C.has_value());
+  EXPECT_EQ(4, *C);
+}
+
+TEST(TransformTest, MoveTransformLlvm) {
+  using wpi::CountCopyAndMove;
+
+  std::optional<CountCopyAndMove> A;
+
+  CountCopyAndMove::ResetCounts();
+  std::optional<int> B = wpi::transformOptional(
+      std::move(A), [&](const CountCopyAndMove &M) { return M.val + 2; });
+  EXPECT_FALSE(B.has_value());
+  EXPECT_EQ(0, CountCopyAndMove::TotalCopies());
+  EXPECT_EQ(0, CountCopyAndMove::MoveConstructions);
+  EXPECT_EQ(0, CountCopyAndMove::MoveAssignments);
+  EXPECT_EQ(0, CountCopyAndMove::Destructions);
+
+  A = CountCopyAndMove(5);
+  CountCopyAndMove::ResetCounts();
+  std::optional<int> C = wpi::transformOptional(
+      std::move(A), [&](const CountCopyAndMove &M) { return M.val + 2; });
+  EXPECT_TRUE(C.has_value());
+  EXPECT_EQ(7, *C);
+  EXPECT_EQ(0, CountCopyAndMove::TotalCopies());
+  EXPECT_EQ(0, CountCopyAndMove::MoveConstructions);
+  EXPECT_EQ(0, CountCopyAndMove::MoveAssignments);
+  EXPECT_EQ(0, CountCopyAndMove::Destructions);
+}
+
+TEST(TransformTest, ToUnderlying) {
+  enum E { A1 = 0, B1 = -1 };
+  static_assert(wpi::to_underlying(A1) == 0);
+  static_assert(wpi::to_underlying(B1) == -1);
+
+  enum E2 : unsigned char { A2 = 0, B2 };
+  static_assert(
+      std::is_same_v<unsigned char, decltype(wpi::to_underlying(A2))>);
+  static_assert(wpi::to_underlying(A2) == 0);
+  static_assert(wpi::to_underlying(B2) == 1);
+
+  enum class E3 { A3 = -1, B3 };
+  static_assert(std::is_same_v<int, decltype(wpi::to_underlying(E3::A3))>);
+  static_assert(wpi::to_underlying(E3::A3) == -1);
+  static_assert(wpi::to_underlying(E3::B3) == 0);
 }
 
 } // namespace

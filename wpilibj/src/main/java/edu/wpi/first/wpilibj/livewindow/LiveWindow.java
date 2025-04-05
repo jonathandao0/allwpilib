@@ -17,7 +17,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableBuilderImpl;
  * The LiveWindow class is the public interface for putting sensors and actuators on the LiveWindow.
  */
 public final class LiveWindow {
-  private static class Component implements AutoCloseable {
+  private static final class Component implements AutoCloseable {
     @Override
     public void close() {
       if (m_namePub != null) {
@@ -36,6 +36,8 @@ public final class LiveWindow {
     StringPublisher m_typePub;
   }
 
+  private static final String kSmartDashboardType = "LW Subsystem";
+
   private static final int dataHandle = SendableRegistry.getDataHandle();
   private static final NetworkTable liveWindowTable =
       NetworkTableInstance.getDefault().getTable("LiveWindow");
@@ -50,7 +52,7 @@ public final class LiveWindow {
   private static Runnable disabledListener;
 
   static {
-    SendableRegistry.setLiveWindowBuilderFactory(() -> new SendableBuilderImpl());
+    SendableRegistry.setLiveWindowBuilderFactory(SendableBuilderImpl::new);
     enabledPub.set(false);
   }
 
@@ -67,14 +69,29 @@ public final class LiveWindow {
     throw new UnsupportedOperationException("This is a utility class!");
   }
 
+  /**
+   * Sets function to be called when LiveWindow is enabled.
+   *
+   * @param runnable function (or null for none)
+   */
   public static synchronized void setEnabledListener(Runnable runnable) {
     enabledListener = runnable;
   }
 
+  /**
+   * Sets function to be called when LiveWindow is disabled.
+   *
+   * @param runnable function (or null for none)
+   */
   public static synchronized void setDisabledListener(Runnable runnable) {
     disabledListener = runnable;
   }
 
+  /**
+   * Returns true if LiveWindow is enabled.
+   *
+   * @return True if LiveWindow is enabled.
+   */
   public static synchronized boolean isEnabled() {
     return liveWindowEnabled;
   }
@@ -86,7 +103,7 @@ public final class LiveWindow {
    * enable all the components registered for LiveWindow. If it's being disabled, stop all the
    * registered components and re-enable the scheduler.
    *
-   * <p>TODO: add code to disable PID loops when enabling LiveWindow. The commands should reenable
+   * <p>TODO: add code to disable PID loops when enabling LiveWindow. The commands should re-enable
    * the PID loops themselves when they get rescheduled. This prevents arms from starting to move
    * around, etc. after a period of adjusting them in LiveWindow mode.
    *
@@ -105,10 +122,7 @@ public final class LiveWindow {
       } else {
         System.out.println("stopping live window mode.");
         SendableRegistry.foreachLiveWindow(
-            dataHandle,
-            cbdata -> {
-              ((SendableBuilderImpl) cbdata.builder).stopLiveWindowMode();
-            });
+            dataHandle, cbdata -> ((SendableBuilderImpl) cbdata.builder).stopLiveWindowMode());
         if (disabledListener != null) {
           disabledListener.run();
         }
@@ -212,8 +226,12 @@ public final class LiveWindow {
             component.m_namePub.set(cbdata.name);
             ((SendableBuilderImpl) cbdata.builder).setTable(table);
             cbdata.sendable.initSendable(cbdata.builder);
-            component.m_typePub = new StringTopic(ssTable.getTopic(".type")).publish();
-            component.m_typePub.set("LW Subsystem");
+            component.m_typePub =
+                new StringTopic(ssTable.getTopic(".type"))
+                    .publishEx(
+                        StringTopic.kTypeString,
+                        "{\"SmartDashboard\":\"" + kSmartDashboardType + "\"}");
+            component.m_typePub.set(kSmartDashboardType);
 
             component.m_firstTime = false;
           }

@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_HEAP_ALLOCATOR_HPP_INCLUDED
 #define WPI_MEMORY_HEAP_ALLOCATOR_HPP_INCLUDED
@@ -29,7 +28,7 @@ namespace wpi
         /// It shall return a \c nullptr if no memory is available.
         /// It must be thread safe.
         /// \defaultbe On a hosted implementation this function uses OS specific facilities, \c std::malloc is used as fallback.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         void* heap_alloc(std::size_t size) noexcept;
 
         /// Deallocates heap memory.
@@ -40,7 +39,7 @@ namespace wpi
         /// The pointer will not be zero.
         /// It must be thread safe.
         /// \defaultbe On a hosted implementation this function uses OS specific facilities, \c std::free is used as fallback.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         void heap_dealloc(void* ptr, std::size_t size) noexcept;
 
         namespace detail
@@ -66,10 +65,10 @@ namespace wpi
                                                        heap_alloator_leak_checker)
         } // namespace detail
 
-        /// A stateless \concept{concept_rawallocator,RawAllocator} that allocates memory from the heap.
+        /// A stateless RawAllocator that allocates memory from the heap.
         /// It uses the two functions \ref heap_alloc and \ref heap_dealloc for the allocation,
         /// which default to \c std::malloc and \c std::free.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         using heap_allocator =
             WPI_IMPL_DEFINED(detail::lowlevel_allocator<detail::heap_allocator_impl>);
 

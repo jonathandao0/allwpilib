@@ -4,6 +4,9 @@
 
 package edu.wpi.first.math.trajectory;
 
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.MetersPerSecondPerSecond;
+
 import edu.wpi.first.math.kinematics.DifferentialDriveKinematics;
 import edu.wpi.first.math.kinematics.MecanumDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -11,6 +14,8 @@ import edu.wpi.first.math.trajectory.constraint.DifferentialDriveKinematicsConst
 import edu.wpi.first.math.trajectory.constraint.MecanumDriveKinematicsConstraint;
 import edu.wpi.first.math.trajectory.constraint.SwerveDriveKinematicsConstraint;
 import edu.wpi.first.math.trajectory.constraint.TrajectoryConstraint;
+import edu.wpi.first.units.measure.LinearAcceleration;
+import edu.wpi.first.units.measure.LinearVelocity;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,6 +46,16 @@ public class TrajectoryConfig {
     m_maxVelocity = maxVelocityMetersPerSecond;
     m_maxAcceleration = maxAccelerationMetersPerSecondSq;
     m_constraints = new ArrayList<>();
+  }
+
+  /**
+   * Constructs the trajectory configuration class.
+   *
+   * @param maxVelocity The max velocity for the trajectory.
+   * @param maxAcceleration The max acceleration for the trajectory.
+   */
+  public TrajectoryConfig(LinearVelocity maxVelocity, LinearAcceleration maxAcceleration) {
+    this(maxVelocity.in(MetersPerSecond), maxAcceleration.in(MetersPerSecondPerSecond));
   }
 
   /**
@@ -122,6 +137,16 @@ public class TrajectoryConfig {
   }
 
   /**
+   * Sets the start velocity of the trajectory.
+   *
+   * @param startVelocity The start velocity of the trajectory.
+   * @return Instance of the current config object.
+   */
+  public TrajectoryConfig setStartVelocity(LinearVelocity startVelocity) {
+    return setStartVelocity(startVelocity.in(MetersPerSecond));
+  }
+
+  /**
    * Returns the starting velocity of the trajectory.
    *
    * @return The starting velocity of the trajectory.
@@ -139,6 +164,16 @@ public class TrajectoryConfig {
   public TrajectoryConfig setEndVelocity(double endVelocityMetersPerSecond) {
     m_endVelocity = endVelocityMetersPerSecond;
     return this;
+  }
+
+  /**
+   * Sets the end velocity of the trajectory.
+   *
+   * @param endVelocity The end velocity of the trajectory.
+   * @return Instance of the current config object.
+   */
+  public TrajectoryConfig setEndVelocity(LinearVelocity endVelocity) {
+    return setEndVelocity(endVelocity.in(MetersPerSecond));
   }
 
   /**

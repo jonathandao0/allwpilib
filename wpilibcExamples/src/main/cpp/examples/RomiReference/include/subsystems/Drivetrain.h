@@ -8,10 +8,11 @@
 #include <frc/Encoder.h>
 #include <frc/drive/DifferentialDrive.h>
 #include <frc/motorcontrol/Spark.h>
+#include <frc/romi/RomiGyro.h>
 #include <frc2/command/SubsystemBase.h>
+#include <units/acceleration.h>
+#include <units/angle.h>
 #include <units/length.h>
-
-#include "sensors/RomiGyro.h"
 
 class Drivetrain : public frc2::SubsystemBase {
  public:
@@ -74,34 +75,46 @@ class Drivetrain : public frc2::SubsystemBase {
   units::meter_t GetAverageDistance();
 
   /**
-   * Returns the acceleration along the X-axis, in Gs.
+   * The acceleration in the X-axis.
+   *
+   * @return The acceleration of the Romi along the X-axis.
    */
-  double GetAccelX();
+  units::meters_per_second_squared_t GetAccelX();
 
   /**
-   * Returns the acceleration along the Y-axis, in Gs.
+   * The acceleration in the Y-axis.
+   *
+   * @return The acceleration of the Romi along the Y-axis.
    */
-  double GetAccelY();
+  units::meters_per_second_squared_t GetAccelY();
 
   /**
-   * Returns the acceleration along the Z-axis, in Gs.
+   * The acceleration in the Z-axis.
+   *
+   * @return The acceleration of the Romi along the Z-axis.
    */
-  double GetAccelZ();
+  units::meters_per_second_squared_t GetAccelZ();
 
   /**
-   * Returns the current angle of the Romi around the X-axis, in degrees.
+   * Current angle of the Romi around the X-axis.
+   *
+   * @return The current angle of the Romi.
    */
-  double GetGyroAngleX();
+  units::radian_t GetGyroAngleX();
 
   /**
-   * Returns the current angle of the Romi around the Y-axis, in degrees.
+   * Current angle of the Romi around the Y-axis.
+   *
+   * @return The current angle of the Romi.
    */
-  double GetGyroAngleY();
+  units::radian_t GetGyroAngleY();
 
   /**
-   * Returns the current angle of the Romi around the Z-axis, in degrees.
+   * Current angle of the Romi around the Z-axis.
+   *
+   * @return The current angle of the Romi.
    */
-  double GetGyroAngleZ();
+  units::radian_t GetGyroAngleZ();
 
   /**
    * Reset the gyro.
@@ -115,8 +128,10 @@ class Drivetrain : public frc2::SubsystemBase {
   frc::Encoder m_leftEncoder{4, 5};
   frc::Encoder m_rightEncoder{6, 7};
 
-  frc::DifferentialDrive m_drive{m_leftMotor, m_rightMotor};
+  frc::DifferentialDrive m_drive{
+      [&](double output) { m_leftMotor.Set(output); },
+      [&](double output) { m_rightMotor.Set(output); }};
 
-  RomiGyro m_gyro;
+  frc::RomiGyro m_gyro;
   frc::BuiltInAccelerometer m_accelerometer;
 };

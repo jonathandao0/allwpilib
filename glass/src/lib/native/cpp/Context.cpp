@@ -4,20 +4,19 @@
 
 #include "glass/Context.h"
 
-#include <algorithm>
-#include <cinttypes>
-#include <cstdio>
 #include <filesystem>
+#include <memory>
+#include <string>
+#include <utility>
 
 #include <fmt/format.h>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
+#include <wpi/MemoryBuffer.h>
 #include <wpi/StringExtras.h>
 #include <wpi/fs.h>
 #include <wpi/json.h>
-#include <wpi/json_serializer.h>
-#include <wpi/raw_istream.h>
 #include <wpi/raw_ostream.h>
 #include <wpi/timestamp.h>
 #include <wpigui.h>
@@ -39,7 +38,7 @@ static void WorkspaceResetImpl() {
 
   // clear storage
   for (auto&& root : gContext->storageRoots) {
-    root.second->Clear();
+    root.second.Clear();
   }
 
   // ImGui reset
@@ -54,7 +53,7 @@ static void WorkspaceInit() {
   }
 
   for (auto&& root : gContext->storageRoots) {
-    root.getValue()->Apply();
+    root.second.Apply();
   }
 }
 
@@ -130,58 +129,49 @@ static bool JsonToWindow(const wpi::json& jfile, const char* filename) {
 }
 
 static bool LoadWindowStorageImpl(const std::string& filename) {
-  std::error_code ec;
-  wpi::raw_fd_istream is{filename, ec};
-  if (ec) {
+  auto fileBuffer = wpi::MemoryBuffer::GetFile(filename);
+  if (!fileBuffer) {
     ImGui::LogText("error opening %s: %s", filename.c_str(),
-                   ec.message().c_str());
+                   fileBuffer.error().message().c_str());
     return false;
-  } else {
-    try {
-      return JsonToWindow(wpi::json::parse(is), filename.c_str());
-    } catch (wpi::json::parse_error& e) {
-      ImGui::LogText("Error loading %s: %s", filename.c_str(), e.what());
-      return false;
-    }
+  }
+  try {
+    return JsonToWindow(wpi::json::parse(fileBuffer.value()->GetCharBuffer()),
+                        filename.c_str());
+  } catch (wpi::json::parse_error& e) {
+    ImGui::LogText("Error loading %s: %s", filename.c_str(), e.what());
+    return false;
   }
 }
 
 static bool LoadStorageRootImpl(Context* ctx, const std::string& filename,
                                 std::string_view rootName) {
-  std::error_code ec;
-  wpi::raw_fd_istream is{filename, ec};
-  if (ec) {
+  auto fileBuffer = wpi::MemoryBuffer::GetFile(filename);
+  if (!fileBuffer) {
     ImGui::LogText("error opening %s: %s", filename.c_str(),
-                   ec.message().c_str());
+                   fileBuffer.error().message().c_str());
     return false;
-  } else {
-    auto& storage = ctx->storageRoots[rootName];
-    bool createdStorage = false;
-    if (!storage) {
-      storage = std::make_unique<Storage>();
-      createdStorage = true;
+  }
+  auto [it, createdStorage] = ctx->storageRoots.try_emplace(rootName);
+  try {
+    it->second.FromJson(wpi::json::parse(fileBuffer.value()->GetCharBuffer()),
+                        filename.c_str());
+  } catch (wpi::json::parse_error& e) {
+    ImGui::LogText("Error loading %s: %s", filename.c_str(), e.what());
+    if (createdStorage) {
+      ctx->storageRoots.erase(it);
     }
-    try {
-      storage->FromJson(wpi::json::parse(is), filename.c_str());
-    } catch (wpi::json::parse_error& e) {
-      ImGui::LogText("Error loading %s: %s", filename.c_str(), e.what());
-      if (createdStorage) {
-        ctx->storageRoots.erase(rootName);
-      }
-      return false;
-    }
+    return false;
   }
   return true;
 }
 
 static bool LoadStorageImpl(Context* ctx, std::string_view dir,
                             std::string_view name) {
-  WorkspaceResetImpl();
-
   bool rv = true;
   for (auto&& root : ctx->storageRoots) {
     std::string filename;
-    auto rootName = root.getKey();
+    auto& rootName = root.first;
     if (rootName.empty()) {
       filename = (fs::path{dir} / fmt::format("{}.json", name)).string();
     } else {
@@ -296,7 +286,7 @@ static bool SaveStorageImpl(Context* ctx, std::string_view dir,
   if (exiting && wpi::gui::gContext->resetOnExit) {
     fs::remove(dirPath / fmt::format("{}-window.json", name), ec);
     for (auto&& root : ctx->storageRoots) {
-      auto rootName = root.getKey();
+      auto& rootName = root.first;
       if (rootName.empty()) {
         fs::remove(dirPath / fmt::format("{}.json", name), ec);
       } else {
@@ -309,14 +299,14 @@ static bool SaveStorageImpl(Context* ctx, std::string_view dir,
       (dirPath / fmt::format("{}-window.json", name)).string());
 
   for (auto&& root : ctx->storageRoots) {
-    auto rootName = root.getKey();
+    auto& rootName = root.first;
     std::string filename;
     if (rootName.empty()) {
       filename = (dirPath / fmt::format("{}.json", name)).string();
     } else {
       filename = (dirPath / fmt::format("{}-{}.json", name, rootName)).string();
     }
-    if (!SaveStorageRootImpl(ctx, filename, *root.getValue())) {
+    if (!SaveStorageRootImpl(ctx, filename, root.second)) {
       rv = false;
     }
   }
@@ -324,10 +314,9 @@ static bool SaveStorageImpl(Context* ctx, std::string_view dir,
 }
 
 Context::Context()
-    : sourceNameStorage{storageRoots.insert({"", std::make_unique<Storage>()})
-                            .first->getValue()
-                            ->GetChild("sourceNames")} {
-  storageStack.emplace_back(storageRoots[""].get());
+    : sourceNameStorage{
+          storageRoots.try_emplace("").first->second.GetChild("sourceNames")} {
+  storageStack.emplace_back(&storageRoots[""]);
 
   // override ImGui ini saving
   wpi::gui::ConfigureCustomSaveSettings(
@@ -419,6 +408,7 @@ std::string glass::GetStorageDir() {
 bool glass::LoadStorage(std::string_view dir) {
   SaveStorage();
   SetStorageDir(dir);
+  WorkspaceResetImpl();
   LoadWindowStorageImpl((fs::path{gContext->storageLoadDir} /
                          fmt::format("{}-window.json", gContext->storageName))
                             .string());
@@ -439,11 +429,7 @@ Storage& glass::GetCurStorageRoot() {
 }
 
 Storage& glass::GetStorageRoot(std::string_view rootName) {
-  auto& storage = gContext->storageRoots[rootName];
-  if (!storage) {
-    storage = std::make_unique<Storage>();
-  }
-  return *storage;
+  return gContext->storageRoots[rootName];
 }
 
 void glass::ResetStorageStack(std::string_view rootName) {
@@ -533,7 +519,8 @@ void glass::PushID(const char* str_id_begin, const char* str_id_end) {
 
 void glass::PushID(int int_id) {
   char buf[16];
-  std::snprintf(buf, sizeof(buf), "%d", int_id);
+  wpi::format_to_n_c_str(buf, sizeof(buf), "{}", int_id);
+
   PushStorageStack(buf);
   ImGui::PushID(int_id);
 }

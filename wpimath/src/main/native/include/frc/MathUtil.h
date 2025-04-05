@@ -5,12 +5,20 @@
 #pragma once
 
 #include <numbers>
+#include <type_traits>
 
+#include <gcem.hpp>
 #include <wpi/SymbolExports.h>
 
+#include "frc/geometry/Translation2d.h"
+#include "frc/geometry/Translation3d.h"
 #include "units/angle.h"
 #include "units/base.h"
+#include "units/length.h"
 #include "units/math.h"
+#include "units/time.h"
+#include "units/velocity.h"
+#include "wpimath/MathShared.h"
 
 namespace frc {
 
@@ -25,13 +33,12 @@ namespace frc {
  * be infinite.
  * @return The value after the deadband is applied.
  */
-template <typename T,
-          typename = std::enable_if_t<std::disjunction_v<
-              std::is_floating_point<T>, units::traits::is_unit_t<T>>>>
-T ApplyDeadband(T value, T deadband, T maxMagnitude = T{1.0}) {
+template <typename T>
+  requires std::is_arithmetic_v<T> || units::traits::is_unit_t_v<T>
+constexpr T ApplyDeadband(T value, T deadband, T maxMagnitude = T{1.0}) {
   T magnitude;
-  if constexpr (std::is_floating_point_v<T>) {
-    magnitude = std::abs(value);
+  if constexpr (std::is_arithmetic_v<T>) {
+    magnitude = gcem::abs(value);
   } else {
     magnitude = units::math::abs(value);
   }
@@ -106,7 +113,59 @@ constexpr T InputModulus(T input, T minimumInput, T maximumInput) {
 }
 
 /**
- * Wraps an angle to the range -pi to pi radians (-180 to 180 degrees).
+ * Checks if the given value matches an expected value within a certain
+ * tolerance.
+ *
+ * @param expected The expected value
+ * @param actual The actual value
+ * @param tolerance The allowed difference between the actual and the expected
+ * value
+ * @return Whether or not the actual value is within the allowed tolerance
+ */
+template <typename T>
+  requires std::is_arithmetic_v<T> || units::traits::is_unit_t_v<T>
+constexpr bool IsNear(T expected, T actual, T tolerance) {
+  if constexpr (std::is_arithmetic_v<T>) {
+    return std::abs(expected - actual) < tolerance;
+  } else {
+    return units::math::abs(expected - actual) < tolerance;
+  }
+}
+
+/**
+ * Checks if the given value matches an expected value within a certain
+ * tolerance. Supports continuous input for cases like absolute encoders.
+ *
+ * Continuous input means that the min and max value are considered to be the
+ * same point, and tolerances can be checked across them. A common example
+ * would be for absolute encoders: calling isNear(2, 359, 5, 0, 360) returns
+ * true because 359 is 1 away from 360 (which is treated as the same as 0) and
+ * 2 is 2 away from 0, adding up to an error of 3 degrees, which is within the
+ * given tolerance of 5.
+ *
+ * @param expected The expected value
+ * @param actual The actual value
+ * @param tolerance The allowed difference between the actual and the expected
+ * value
+ * @param min Smallest value before wrapping around to the largest value
+ * @param max Largest value before wrapping around to the smallest value
+ * @return Whether or not the actual value is within the allowed tolerance
+ */
+template <typename T>
+  requires std::is_arithmetic_v<T> || units::traits::is_unit_t_v<T>
+constexpr bool IsNear(T expected, T actual, T tolerance, T min, T max) {
+  T errorBound = (max - min) / 2.0;
+  T error = frc::InputModulus<T>(expected - actual, -errorBound, errorBound);
+
+  if constexpr (std::is_arithmetic_v<T>) {
+    return std::abs(error) < tolerance;
+  } else {
+    return units::math::abs(error) < tolerance;
+  }
+}
+
+/**
+ * Wraps an angle to the range -π to π radians (-180 to 180 degrees).
  *
  * @param angle Angle to wrap.
  */
@@ -115,6 +174,104 @@ constexpr units::radian_t AngleModulus(units::radian_t angle) {
   return InputModulus<units::radian_t>(angle,
                                        units::radian_t{-std::numbers::pi},
                                        units::radian_t{std::numbers::pi});
+}
+
+// floorDiv and floorMod algorithms taken from Java
+
+/**
+ * Returns the largest (closest to positive infinity)
+ * {@code int} value that is less than or equal to the algebraic quotient.
+ *
+ * @param x the dividend
+ * @param y the divisor
+ * @return the largest (closest to positive infinity)
+ *   {@code int} value that is less than or equal to the algebraic quotient.
+ */
+constexpr std::signed_integral auto FloorDiv(std::signed_integral auto x,
+                                             std::signed_integral auto y) {
+  auto quot = x / y;
+  auto rem = x % y;
+  // if the signs are different and modulo not zero, round down
+  if ((x < 0) != (y < 0) && rem != 0) {
+    --quot;
+  }
+  return quot;
+}
+
+/**
+ * Returns the floor modulus of the {@code int} arguments.
+ * <p>
+ * The floor modulus is {@code r = x - (floorDiv(x, y) * y)},
+ * has the same sign as the divisor {@code y} or is zero, and
+ * is in the range of {@code -std::abs(y) < r < +std::abs(y)}.
+ *
+ * @param x the dividend
+ * @param y the divisor
+ * @return the floor modulus {@code x - (floorDiv(x, y) * y)}
+ */
+constexpr std::signed_integral auto FloorMod(std::signed_integral auto x,
+                                             std::signed_integral auto y) {
+  return x - FloorDiv(x, y) * y;
+}
+
+/**
+ * Limits translation velocity.
+ *
+ * @param current Translation at current timestep.
+ * @param next Translation at next timestep.
+ * @param dt Timestep duration.
+ * @param maxVelocity Maximum translation velocity.
+ * @return Returns the next Translation2d limited to maxVelocity
+ */
+constexpr Translation2d SlewRateLimit(const Translation2d& current,
+                                      const Translation2d& next,
+                                      units::second_t dt,
+                                      units::meters_per_second_t maxVelocity) {
+  if (maxVelocity < 0_mps) {
+    wpi::math::MathSharedStore::ReportError(
+        "maxVelocity must be a non-negative number, got {}!", maxVelocity);
+    return next;
+  }
+  Translation2d diff = next - current;
+  units::meter_t dist = diff.Norm();
+  if (dist < 1e-9_m) {
+    return next;
+  }
+  if (dist > maxVelocity * dt) {
+    // Move maximum allowed amount in direction of the difference
+    return current + diff * (maxVelocity * dt / dist);
+  }
+  return next;
+}
+
+/**
+ * Limits translation velocity.
+ *
+ * @param current Translation at current timestep.
+ * @param next Translation at next timestep.
+ * @param dt Timestep duration.
+ * @param maxVelocity Maximum translation velocity.
+ * @return Returns the next Translation3d limited to maxVelocity
+ */
+constexpr Translation3d SlewRateLimit(const Translation3d& current,
+                                      const Translation3d& next,
+                                      units::second_t dt,
+                                      units::meters_per_second_t maxVelocity) {
+  if (maxVelocity < 0_mps) {
+    wpi::math::MathSharedStore::ReportError(
+        "maxVelocity must be a non-negative number, got {}!", maxVelocity);
+    return next;
+  }
+  Translation3d diff = next - current;
+  units::meter_t dist = diff.Norm();
+  if (dist < 1e-9_m) {
+    return next;
+  }
+  if (dist > maxVelocity * dt) {
+    // Move maximum allowed amount in direction of the difference
+    return current + diff * (maxVelocity * dt / dist);
+  }
+  return next;
 }
 
 }  // namespace frc

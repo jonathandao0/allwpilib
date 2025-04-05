@@ -2,10 +2,10 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
+#include <gtest/gtest.h>
 #include <wpi/timestamp.h>
 
 #include "frc/filter/SlewRateLimiter.h"
-#include "gtest/gtest.h"
 #include "units/length.h"
 #include "units/time.h"
 #include "units/velocity.h"
@@ -39,7 +39,7 @@ TEST_F(SlewRateLimiterTest, SlewRateNoLimit) {
   EXPECT_EQ(limiter.Calculate(0.5_m), 0.5_m);
 }
 
-TEST_F(SlewRateLimiterTest, SlewRatePositveNegativeLimit) {
+TEST_F(SlewRateLimiterTest, SlewRatePositiveNegativeLimit) {
   frc::SlewRateLimiter<units::meters> limiter(1_mps, -0.5_mps);
 
   now += 1_s;

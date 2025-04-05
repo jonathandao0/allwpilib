@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.util.Units;
-import java.io.IOException;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -24,15 +23,13 @@ class LoadConfigTest {
   @EnumSource(AprilTagFields.class)
   void testLoad(AprilTagFields field) {
     AprilTagFieldLayout layout =
-        Assertions.assertDoesNotThrow(
-            () -> AprilTagFieldLayout.loadFromResource(field.m_resourceFile));
+        Assertions.assertDoesNotThrow(() -> AprilTagFieldLayout.loadField(field));
     assertNotNull(layout);
   }
 
   @Test
-  void test2022RapidReact() throws IOException {
-    AprilTagFieldLayout layout =
-        AprilTagFieldLayout.loadFromResource(AprilTagFields.k2022RapidReact.m_resourceFile);
+  void test2022RapidReact() {
+    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.k2022RapidReact);
 
     // Blue Hangar Truss - Hub
     Pose3d expectedPose =
@@ -40,7 +37,7 @@ class LoadConfigTest {
             Units.inchesToMeters(127.272),
             Units.inchesToMeters(216.01),
             Units.inchesToMeters(67.932),
-            new Rotation3d(0, 0, 0));
+            Rotation3d.kZero);
     Optional<Pose3d> maybePose = layout.getTagPose(1);
     assertTrue(maybePose.isPresent());
     assertEquals(expectedPose, maybePose.get());

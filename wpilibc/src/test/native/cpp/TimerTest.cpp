@@ -4,8 +4,9 @@
 
 #include "frc/Timer.h"  // NOLINT(build/include_order)
 
+#include <gtest/gtest.h>
+
 #include "frc/simulation/SimHooks.h"
-#include "gtest/gtest.h"
 
 using namespace frc;
 
@@ -27,18 +28,22 @@ TEST_F(TimerTest, StartStop) {
 
   // Verify timer is initialized as stopped
   EXPECT_EQ(timer.Get(), 0_s);
+  EXPECT_FALSE(timer.IsRunning());
   frc::sim::StepTiming(500_ms);
   EXPECT_EQ(timer.Get(), 0_s);
+  EXPECT_FALSE(timer.IsRunning());
 
   // Verify timer increments after it's started
   timer.Start();
   frc::sim::StepTiming(500_ms);
   EXPECT_EQ(timer.Get(), 500_ms);
+  EXPECT_TRUE(timer.IsRunning());
 
   // Verify timer stops incrementing after it's stopped
   timer.Stop();
   frc::sim::StepTiming(500_ms);
   EXPECT_EQ(timer.Get(), 500_ms);
+  EXPECT_FALSE(timer.IsRunning());
 }
 
 TEST_F(TimerTest, Reset) {

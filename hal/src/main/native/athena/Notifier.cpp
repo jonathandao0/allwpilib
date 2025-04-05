@@ -9,9 +9,9 @@
 #include <memory>
 #include <thread>
 
-#include <fmt/core.h>
 #include <wpi/condition_variable.h>
 #include <wpi/mutex.h>
+#include <wpi/print.h>
 
 #include "HALInitializer.h"
 #include "HALInternal.h"
@@ -128,8 +128,9 @@ static void notifierThreadMain() {
 
 static void cleanupNotifierAtExit() {
   int32_t status = 0;
-  if (notifierAlarm)
+  if (notifierAlarm) {
     notifierAlarm->writeEnable(false, &status);
+  }
   notifierAlarm = nullptr;
   notifierRunning = false;
   hal::ReleaseFPGAInterrupt(kTimerInterruptNumber);
@@ -163,12 +164,12 @@ HAL_NotifierHandle HAL_InitializeNotifier(int32_t* status) {
                           notifierThreadPriority, status);
     if (*status == HAL_THREAD_PRIORITY_ERROR) {
       *status = 0;
-      fmt::print("{}: HAL Notifier thread\n",
+      wpi::print("{}: HAL Notifier thread\n",
                  HAL_THREAD_PRIORITY_ERROR_MESSAGE);
     }
     if (*status == HAL_THREAD_PRIORITY_RANGE_ERROR) {
       *status = 0;
-      fmt::print("{}: HAL Notifier thread\n",
+      wpi::print("{}: HAL Notifier thread\n",
                  HAL_THREAD_PRIORITY_RANGE_ERROR_MESSAGE);
     }
 
@@ -215,7 +216,7 @@ void HAL_StopNotifier(HAL_NotifierHandle notifierHandle, int32_t* status) {
   notifier->cond.notify_all();  // wake up any waiting threads
 }
 
-void HAL_CleanNotifier(HAL_NotifierHandle notifierHandle, int32_t* status) {
+void HAL_CleanNotifier(HAL_NotifierHandle notifierHandle) {
   auto notifier = notifierHandles->Free(notifierHandle);
   if (!notifier) {
     return;
@@ -235,9 +236,10 @@ void HAL_CleanNotifier(HAL_NotifierHandle notifierHandle, int32_t* status) {
     // the notifier can call back into our callback, so don't hold the lock
     // here (the atomic fetch_sub will prevent multiple parallel entries
     // into this function)
-
-    if (notifierAlarm)
-      notifierAlarm->writeEnable(false, status);
+    int32_t status = 0;
+    if (notifierAlarm) {
+      notifierAlarm->writeEnable(false, &status);
+    }
     notifierRunning = false;
     hal::ReleaseFPGAInterrupt(kTimerInterruptNumber);
     if (notifierThread.joinable()) {
@@ -272,8 +274,9 @@ void HAL_UpdateNotifierAlarm(HAL_NotifierHandle notifierHandle,
     notifierAlarm->writeTriggerTime(static_cast<uint32_t>(closestTrigger),
                                     status);
     // Enable the alarm.
-    if (!wasActive)
+    if (!wasActive) {
       notifierAlarm->writeEnable(true, status);
+    }
   }
 }
 

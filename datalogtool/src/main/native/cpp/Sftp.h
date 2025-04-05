@@ -4,14 +4,14 @@
 
 #pragma once
 
-#include <libssh/libssh.h>
-#include <libssh/sftp.h>
-
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <libssh/libssh.h>
+#include <libssh/sftp.h>
 
 namespace sftp {
 
@@ -47,11 +47,7 @@ class File {
   void SetNonblocking() { sftp_file_set_nonblocking(m_handle); }
   void SetBlocking() { sftp_file_set_blocking(m_handle); }
 
-  using AsyncId = uint32_t;
-
   size_t Read(void* buf, uint32_t count);
-  AsyncId AsyncReadBegin(uint32_t len) const;
-  size_t AsyncRead(void* data, uint32_t len, AsyncId id);
   size_t Write(std::span<const uint8_t> data);
 
   void Seek(uint64_t offset);

@@ -54,19 +54,26 @@ class ParallelTcpConnector
    * @param connected callback function when a connection succeeds; may be
    *                  called multiple times if it does not call Succeeded()
    *                  before returning
+   * @param ipv4Only true if only IPv4 addresses should be returned; otherwise
+   *                 both IPv4 and IPv6 addresses are returned
    * @return Parallel connector
    */
   static std::shared_ptr<ParallelTcpConnector> Create(
       wpi::uv::Loop& loop, wpi::uv::Timer::Time reconnectRate,
-      wpi::Logger& logger, std::function<void(wpi::uv::Tcp& tcp)> connected) {
-    return std::make_shared<ParallelTcpConnector>(
-        loop, reconnectRate, logger, std::move(connected), private_init{});
+      wpi::Logger& logger, std::function<void(wpi::uv::Tcp& tcp)> connected,
+      bool ipv4Only = false) {
+    if (loop.IsClosing()) {
+      return nullptr;
+    }
+    return std::make_shared<ParallelTcpConnector>(loop, reconnectRate, logger,
+                                                  std::move(connected),
+                                                  ipv4Only, private_init{});
   }
 
   ParallelTcpConnector(wpi::uv::Loop& loop, wpi::uv::Timer::Time reconnectRate,
                        wpi::Logger& logger,
                        std::function<void(wpi::uv::Tcp& tcp)> connected,
-                       const private_init&);
+                       bool ipv4Only, const private_init&);
   ~ParallelTcpConnector();
 
   ParallelTcpConnector(const ParallelTcpConnector&) = delete;
@@ -108,11 +115,13 @@ class ParallelTcpConnector
   wpi::uv::Loop& m_loop;
   wpi::Logger& m_logger;
   wpi::uv::Timer::Time m_reconnectRate;
+  bool m_ipv4Only;
   std::function<void(wpi::uv::Tcp& tcp)> m_connected;
   std::shared_ptr<wpi::uv::Timer> m_reconnectTimer;
   std::vector<std::pair<std::string, unsigned int>> m_servers;
   std::vector<std::weak_ptr<wpi::uv::GetAddrInfoReq>> m_resolvers;
-  std::vector<std::weak_ptr<wpi::uv::Tcp>> m_attempts;
+  std::vector<std::pair<sockaddr_storage, std::weak_ptr<wpi::uv::Tcp>>>
+      m_attempts;
   bool m_isConnected{false};
 };
 

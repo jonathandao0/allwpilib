@@ -8,12 +8,15 @@
 #include <pty.h>
 #endif
 
+#include <bit>
 #include <cstdio>
+#include <memory>
+#include <string>
 
 #include <fmt/format.h>
-#include <wpi/MathExtras.h>
 #include <wpi/SmallVector.h>
 #include <wpi/StringExtras.h>
+#include <wpi/print.h>
 #include <wpi/timestamp.h>
 
 #include "wpinet/raw_uv_ostream.h"
@@ -47,7 +50,8 @@ static bool NewlineBuffer(std::string& rem, uv::Buffer& buf, size_t len,
   std::string_view toCopy = wpi::slice(str, 0, idx + 1);
   if (tcp) {
     // Header is 2 byte len, 1 byte type, 4 byte timestamp, 2 byte sequence num
-    uint32_t ts = wpi::FloatToBits((wpi::Now() - startTime) * 1.0e-6);
+    uint32_t ts =
+        std::bit_cast<uint32_t, float>((wpi::Now() - startTime) * 1.0e-6);
     uint16_t len = rem.size() + toCopy.size() + 1 + 4 + 2;
     const uint8_t header[] = {static_cast<uint8_t>((len >> 8) & 0xff),
                               static_cast<uint8_t>(len & 0xff),
@@ -67,6 +71,10 @@ static bool NewlineBuffer(std::string& rem, uv::Buffer& buf, size_t len,
   return true;
 }
 
+// FIXME: clang-tidy reports a false positive for leaking a captured shared_ptr
+//        (clang-analyzer-cplusplus.NewDeleteLeaks)
+
+// NOLINTBEGIN
 static void CopyUdp(uv::Stream& in, std::shared_ptr<uv::Udp> out,
                     bool broadcast) {
   sockaddr_in addr;
@@ -131,6 +139,7 @@ static void CopyStream(uv::Stream& in, std::shared_ptr<uv::Stream> out) {
     });
   });
 }
+// NOLINTEND
 
 int main(int argc, char* argv[]) {
   // parse arguments
@@ -146,7 +155,7 @@ int main(int argc, char* argv[]) {
       useUdp = true;
       broadcastUdp = true;
     } else {
-      fmt::print(stderr, "unrecognized command line option {}\n",
+      wpi::print(stderr, "unrecognized command line option {}\n",
                  argv[programArgc]);
       err = true;
     }
@@ -167,7 +176,7 @@ int main(int argc, char* argv[]) {
 
   auto loop = uv::Loop::Create();
   loop->error.connect(
-      [](uv::Error err) { fmt::print(stderr, "uv ERROR: {}\n", err.str()); });
+      [](uv::Error err) { wpi::print(stderr, "uv ERROR: {}\n", err.str()); });
 
   // create pipes to communicate with child
   auto stdinPipe = uv::Pipe::Create(loop);

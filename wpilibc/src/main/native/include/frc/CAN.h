@@ -6,12 +6,15 @@
 
 #include <stdint.h>
 
-#include <hal/CANAPITypes.h>
+#include <hal/CANAPI.h>
 
 namespace frc {
 struct CANData {
+  /** Contents of the CAN packet. */
   uint8_t data[8];
+  /** Length of packet in bytes. */
   int32_t length;
+  /** CAN frame timestamp in milliseconds. */
   uint64_t timestamp;
 };
 
@@ -46,11 +49,6 @@ class CAN {
    * @param deviceType         The device type
    */
   CAN(int deviceId, int deviceManufacturer, int deviceType);
-
-  /**
-   * Closes the CAN communication.
-   */
-  ~CAN();
 
   CAN(CAN&&) = default;
   CAN& operator=(CAN&&) = default;
@@ -158,11 +156,23 @@ class CAN {
    */
   bool ReadPacketTimeout(int apiId, int timeoutMs, CANData* data);
 
+  /**
+   * Reads the current value of the millisecond-resolution timer that CANData
+   * timestamps are based on
+   *
+   * @return Current value of timer used as a base time for CANData timestamps
+   * in milliseconds
+   */
+  static uint64_t GetTimestampBaseTime();
+
+  /// Team manufacturer.
   static constexpr HAL_CANManufacturer kTeamManufacturer = HAL_CAN_Man_kTeamUse;
+
+  /// Team device type.
   static constexpr HAL_CANDeviceType kTeamDeviceType =
       HAL_CAN_Dev_kMiscellaneous;
 
  private:
-  hal::Handle<HAL_CANHandle> m_handle;
+  hal::Handle<HAL_CANHandle, HAL_CleanCAN> m_handle;
 };
 }  // namespace frc

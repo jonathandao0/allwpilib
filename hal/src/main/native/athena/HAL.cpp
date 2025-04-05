@@ -4,6 +4,7 @@
 
 #include "hal/HAL.h"
 
+#include <dlfcn.h>
 #include <signal.h>  // linux for kill
 #include <sys/prctl.h>
 #include <unistd.h>
@@ -12,17 +13,19 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <memory>
 #include <thread>
+#include <utility>
 
 #include <FRC_NetworkCommunication/FRCComm.h>
 #include <FRC_NetworkCommunication/LoadOut.h>
 #include <FRC_NetworkCommunication/UsageReporting.h>
-#include <fmt/format.h>
 #include <wpi/MemoryBuffer.h>
 #include <wpi/SmallString.h>
 #include <wpi/StringExtras.h>
 #include <wpi/fs.h>
 #include <wpi/mutex.h>
+#include <wpi/print.h>
 #include <wpi/timestamp.h>
 
 #include "FPGACalls.h"
@@ -33,6 +36,7 @@
 #include "hal/Errors.h"
 #include "hal/Notifier.h"
 #include "hal/handles/HandlesInternal.h"
+#include "hal/roborio/HMB.h"
 #include "hal/roborio/InterruptManager.h"
 #include "visa/visa.h"
 
@@ -46,10 +50,16 @@ static char roboRioCommentsString[64];
 static size_t roboRioCommentsStringSize;
 static bool roboRioCommentsStringInitialized;
 
+static int32_t teamNumber = -1;
+
+static const volatile HAL_HMBData* hmbBuffer;
+#define HAL_HMB_TIMESTAMP_OFFSET 5
+
 using namespace hal;
 
 namespace hal {
 void InitializeDriverStation();
+void WaitForInitialPacket();
 namespace init {
 void InitializeHAL() {
   InitializeCTREPCM();
@@ -75,6 +85,7 @@ void InitializeHAL() {
   InitializeFRCDriverStation();
   InitializeI2C();
   InitializeInterrupts();
+  InitializeLEDs();
   InitializeMain();
   InitializeNotifier();
   InitializeCTREPDP();
@@ -252,12 +263,10 @@ const char* HAL_GetErrorMessage(int32_t code) {
   }
 }
 
+static HAL_RuntimeType runtimeType = HAL_Runtime_RoboRIO;
+
 HAL_RuntimeType HAL_GetRuntimeType(void) {
-  nLoadOut::tTargetClass targetClass = nLoadOut::getTargetClass();
-  if (targetClass == nLoadOut::kTargetClass_RoboRIO2) {
-    return HAL_Runtime_RoboRIO2;
-  }
-  return HAL_Runtime_RoboRIO;
+  return runtimeType;
 }
 
 int32_t HAL_GetFPGAVersion(int32_t* status) {
@@ -278,36 +287,27 @@ int64_t HAL_GetFPGARevision(int32_t* status) {
   return global->readRevision(status);
 }
 
-size_t HAL_GetSerialNumber(char* buffer, size_t size) {
+void HAL_GetSerialNumber(struct WPI_String* serialNumber) {
   const char* serialNum = std::getenv("serialnum");
-  if (serialNum) {
-    std::strncpy(buffer, serialNum, size);
-    buffer[size - 1] = '\0';
-    return std::strlen(buffer);
-  } else {
-    if (size > 0) {
-      buffer[0] = '\0';
-    }
-    return 0;
+  if (!serialNum) {
+    serialNum = "";
   }
+  size_t len = std::strlen(serialNum);
+  auto write = WPI_AllocateString(serialNumber, len);
+  std::memcpy(write, serialNum, len);
 }
 
 void InitializeRoboRioComments(void) {
   if (!roboRioCommentsStringInitialized) {
-    std::error_code ec;
-    std::unique_ptr<wpi::MemoryBuffer> fileBuffer =
-        wpi::MemoryBuffer::GetFile("/etc/machine-info", ec);
-
-    std::string_view fileContents;
-    if (fileBuffer && !ec) {
-      fileContents =
-          std::string_view(reinterpret_cast<const char*>(fileBuffer->begin()),
-                           fileBuffer->size());
-    } else {
+    auto fileBuffer = wpi::MemoryBuffer::GetFile("/etc/machine-info");
+    if (!fileBuffer) {
       roboRioCommentsStringSize = 0;
       roboRioCommentsStringInitialized = true;
       return;
     }
+    std::string_view fileContents{
+        reinterpret_cast<const char*>(fileBuffer.value()->begin()),
+        fileBuffer.value()->size()};
     std::string_view searchString = "PRETTY_HOSTNAME=\"";
 
     size_t start = fileContents.find(searchString);
@@ -317,11 +317,8 @@ void InitializeRoboRioComments(void) {
       return;
     }
     start += searchString.size();
-    size_t end = fileContents.find("\"", start);
-    if (end == std::string_view::npos) {
-      end = fileContents.size();
-    }
-    std::string_view escapedComments = wpi::slice(fileContents, start, end);
+    std::string_view escapedComments =
+        wpi::slice(fileContents, start, fileContents.size());
     wpi::SmallString<64> buf;
     auto [unescapedComments, rem] = wpi::UnescapeCString(escapedComments, buf);
     unescapedComments.copy(roboRioCommentsString,
@@ -336,44 +333,69 @@ void InitializeRoboRioComments(void) {
   }
 }
 
-size_t HAL_GetComments(char* buffer, size_t size) {
+void HAL_GetComments(struct WPI_String* comments) {
   if (!roboRioCommentsStringInitialized) {
     InitializeRoboRioComments();
   }
-  size_t toCopy = size;
-  if (size > roboRioCommentsStringSize) {
-    toCopy = roboRioCommentsStringSize;
+  auto write = WPI_AllocateString(comments, roboRioCommentsStringSize);
+  std::memcpy(write, roboRioCommentsString, roboRioCommentsStringSize);
+}
+
+void InitializeTeamNumber(void) {
+  char hostnameBuf[25];
+  auto status = gethostname(hostnameBuf, sizeof(hostnameBuf));
+  if (status != 0) {
+    teamNumber = 0;
+    return;
   }
-  std::memcpy(buffer, roboRioCommentsString, toCopy);
-  if (toCopy < size) {
-    buffer[toCopy] = '\0';
-  } else {
-    buffer[toCopy - 1] = '\0';
+
+  std::string_view hostname{hostnameBuf, sizeof(hostnameBuf)};
+
+  // hostname is frc-{TEAM}-roborio
+  // Split string around '-' (max of 2 splits), take the second element of the
+  // resulting array.
+  wpi::SmallVector<std::string_view> elements;
+  wpi::split(hostname, elements, "-", 2);
+  if (elements.size() < 3) {
+    teamNumber = 0;
+    return;
   }
-  return toCopy;
+
+  teamNumber = wpi::parse_integer<int32_t>(elements[1], 10).value_or(0);
+}
+
+int32_t HAL_GetTeamNumber(void) {
+  if (teamNumber == -1) {
+    InitializeTeamNumber();
+  }
+  return teamNumber;
 }
 
 uint64_t HAL_GetFPGATime(int32_t* status) {
   hal::init::CheckInit();
-  if (!global) {
+  if (!hmbBuffer) {
     *status = NiFpga_Status_ResourceNotInitialized;
     return 0;
   }
-  *status = 0;
-  uint64_t upper1 = global->readLocalTimeUpper(status);
-  uint32_t lower = global->readLocalTime(status);
-  uint64_t upper2 = global->readLocalTimeUpper(status);
-  if (*status != 0) {
-    return 0;
-  }
+
+  asm("dmb");
+  uint64_t upper1 = hmbBuffer->Timestamp.Upper;
+  asm("dmb");
+  uint32_t lower = hmbBuffer->Timestamp.Lower;
+  asm("dmb");
+  uint64_t upper2 = hmbBuffer->Timestamp.Upper;
+
   if (upper1 != upper2) {
     // Rolled over between the lower call, reread lower
-    lower = global->readLocalTime(status);
-    if (*status != 0) {
-      return 0;
-    }
+    asm("dmb");
+    lower = hmbBuffer->Timestamp.Lower;
   }
-  return (upper2 << 32) + lower;
+  // 5 is added here because the time to write from the FPGA
+  // to the HMB buffer is longer then the time to read
+  // from the time register. This would cause register based
+  // timestamps to be ahead of HMB timestamps, which could
+  // be very bad.
+  return (upper2 << 32) + lower + HAL_HMB_TIMESTAMP_OFFSET;
 }
 
 uint64_t HAL_ExpandFPGATime(uint32_t unexpandedLower, int32_t* status) {
@@ -427,10 +449,34 @@ HAL_Bool HAL_GetBrownedOut(int32_t* status) {
   return !(watchdog->readStatus_PowerAlive(status));
 }
 
+int32_t HAL_GetCommsDisableCount(int32_t* status) {
+  hal::init::CheckInit();
+  if (!watchdog) {
+    *status = NiFpga_Status_ResourceNotInitialized;
+    return 0;
+  }
+  return watchdog->readStatus_SysDisableCount(status);
+}
+
+HAL_Bool HAL_GetRSLState(int32_t* status) {
+  hal::init::CheckInit();
+  if (!global) {
+    *status = NiFpga_Status_ResourceNotInitialized;
+    return false;
+  }
+  return global->readLEDs_RSL(status);
+}
+
+HAL_Bool HAL_GetSystemTimeValid(int32_t* status) {
+  uint8_t timeWasSet = 0;
+  *status = FRC_NetworkCommunication_getTimeWasSet(&timeWasSet);
+  return timeWasSet != 0;
+}
+
 static bool killExistingProgram(int timeout, int mode) {
   // Kill any previous robot programs
   std::fstream fs;
-  // By making this both in/out, it won't give us an error if it doesnt exist
+  // By making this both in/out, it won't give us an error if it doesn't exist
   fs.open("/var/lock/frc.pid", std::fstream::in | std::fstream::out);
   if (fs.bad()) {
     return false;
@@ -447,14 +493,14 @@ static bool killExistingProgram(int timeout, int mode) {
       std::this_thread::sleep_for(std::chrono::milliseconds(timeout));
       if (kill(pid, 0) == 0) {
         // still not successful
-        fmt::print(
+        wpi::print(
             "FRC pid {} did not die within {} ms. Force killing with kill -9\n",
             pid, timeout);
         // Force kill -9
         auto forceKill = kill(pid, SIGKILL);
         if (forceKill != 0) {
           auto errorMsg = std::strerror(forceKill);
-          fmt::print("Kill -9 error: {}\n", errorMsg);
+          wpi::print("Kill -9 error: {}\n", errorMsg);
         }
         // Give a bit of time for the kill to take place
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
@@ -469,6 +515,35 @@ static bool killExistingProgram(int timeout, int mode) {
   fs << pid << std::endl;
   fs.close();
   return true;
+}
+
+static bool SetupNowRio(void) {
+  nFPGA::nRoboRIO_FPGANamespace::g_currentTargetClass =
+      nLoadOut::getTargetClass();
+
+  int32_t status = 0;
+
+  Dl_info info;
+  status = dladdr(reinterpret_cast<void*>(tHMB::create), &info);
+  if (status == 0) {
+    wpi::print(stderr, "Failed to call dladdr on chipobject {}\n", dlerror());
+    return false;
+  }
+
+  void* chipObjectLibrary = dlopen(info.dli_fname, RTLD_LAZY);
+  if (chipObjectLibrary == nullptr) {
+    wpi::print(stderr, "Failed to call dlopen on chipobject {}\n", dlerror());
+    return false;
+  }
+
+  std::unique_ptr<tHMB> hmb;
+  hmb.reset(tHMB::create(&status));
+  if (hmb == nullptr) {
+    wpi::print(stderr, "Failed to open HMB on chipobject {}\n", status);
+    dlclose(chipObjectLibrary);
+    return false;
+  }
+  return wpi::impl::SetupNowRio(chipObjectLibrary, std::move(hmb));
 }
 
 HAL_Bool HAL_Initialize(int32_t timeout, int32_t mode) {
@@ -511,15 +586,39 @@ HAL_Bool HAL_Initialize(int32_t timeout, int32_t mode) {
     setNewDataSem(nullptr);
   });
 
-  nFPGA::nRoboRIO_FPGANamespace::g_currentTargetClass =
-      nLoadOut::getTargetClass();
+  if (!SetupNowRio()) {
+    wpi::print(stderr,
+               "Failed to run SetupNowRio(). This is a fatal error. The "
+               "process is being terminated.\n");
+    std::fflush(stderr);
+    // Attempt to force a segfault to get a better java log
+    *reinterpret_cast<int*>(0) = 0;
+    // If that fails, terminate
+    std::terminate();
+    return false;
+  }
 
   int32_t status = 0;
+
+  HAL_InitializeHMB(&status);
+  if (status != 0) {
+    wpi::print(stderr, "Failed to open HAL HMB, status code {}\n", status);
+    return false;
+  }
+  hmbBuffer = HAL_GetHMBBuffer();
+
   global.reset(tGlobal::create(&status));
   watchdog.reset(tSysWatchdog::create(&status));
 
   if (status != 0) {
     return false;
+  }
+
+  nLoadOut::tTargetClass targetClass = nLoadOut::getTargetClass();
+  if (targetClass == nLoadOut::kTargetClass_RoboRIO2) {
+    runtimeType = HAL_Runtime_RoboRIO2;
+  } else {
+    runtimeType = HAL_Runtime_RoboRIO;
   }
 
   InterruptManager::Initialize(global->getSystemInterface());
@@ -531,20 +630,7 @@ HAL_Bool HAL_Initialize(int32_t timeout, int32_t mode) {
     return false;
   }
 
-  // Set WPI_Now to use FPGA timestamp
-  wpi::SetNowImpl([]() -> uint64_t {
-    int32_t status = 0;
-    uint64_t rv = HAL_GetFPGATime(&status);
-    if (status != 0) {
-      fmt::print(stderr,
-                 "Call to HAL_GetFPGATime failed in wpi::Now() with status {}. "
-                 "Initialization might have failed. Time will not be correct\n",
-                 status);
-      std::fflush(stderr);
-      return 0u;
-    }
-    return rv;
-  });
+  hal::WaitForInitialPacket();
 
   initialized = true;
   return true;

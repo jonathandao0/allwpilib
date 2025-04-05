@@ -4,16 +4,16 @@
 
 #include "frc/simulation/BuiltInAccelerometerSim.h"  // NOLINT(build/include_order)
 
+#include <gtest/gtest.h>
 #include <hal/Accelerometer.h>
 #include <hal/HAL.h>
 
 #include "callback_helpers/TestCallbackHelpers.h"
 #include "frc/BuiltInAccelerometer.h"
-#include "gtest/gtest.h"
 
 namespace frc::sim {
 
-TEST(AcclerometerSimTest, ActiveCallback) {
+TEST(AccelerometerSimTest, ActiveCallback) {
   HAL_Initialize(500, 0);
 
   BuiltInAccelerometerSim sim;
@@ -39,7 +39,7 @@ TEST(AcclerometerSimTest, ActiveCallback) {
   EXPECT_TRUE(sim.GetActive());
 }
 
-TEST(AcclerometerSimTest, SetX) {
+TEST(AccelerometerSimTest, SetX) {
   HAL_Initialize(500, 0);
   BuiltInAccelerometerSim sim;
   sim.ResetData();
@@ -56,7 +56,7 @@ TEST(AcclerometerSimTest, SetX) {
   EXPECT_EQ(kTestValue, callback.GetLastValue());
 }
 
-TEST(AcclerometerSimTest, SetY) {
+TEST(AccelerometerSimTest, SetY) {
   HAL_Initialize(500, 0);
   BuiltInAccelerometerSim sim;
   sim.ResetData();
@@ -73,7 +73,7 @@ TEST(AcclerometerSimTest, SetY) {
   EXPECT_EQ(kTestValue, callback.GetLastValue());
 }
 
-TEST(AcclerometerSimTest, SetZ) {
+TEST(AccelerometerSimTest, SetZ) {
   HAL_Initialize(500, 0);
 
   BuiltInAccelerometer accel;
@@ -91,7 +91,7 @@ TEST(AcclerometerSimTest, SetZ) {
   EXPECT_EQ(kTestValue, callback.GetLastValue());
 }
 
-TEST(AcclerometerSimTest, SetRange) {
+TEST(AccelerometerSimTest, SetRange) {
   HAL_Initialize(500, 0);
 
   BuiltInAccelerometerSim sim;
@@ -99,7 +99,7 @@ TEST(AcclerometerSimTest, SetRange) {
 
   EnumCallback callback;
 
-  Accelerometer::Range range = Accelerometer::kRange_4G;
+  BuiltInAccelerometer::Range range = BuiltInAccelerometer::kRange_4G;
   auto cb = sim.RegisterRangeCallback(callback.GetCallback(), false);
   BuiltInAccelerometer accel(range);
   EXPECT_TRUE(callback.WasTriggered());
@@ -108,7 +108,7 @@ TEST(AcclerometerSimTest, SetRange) {
 
   // 2G
   callback.Reset();
-  range = Accelerometer::kRange_2G;
+  range = BuiltInAccelerometer::kRange_2G;
   accel.SetRange(range);
   EXPECT_TRUE(callback.WasTriggered());
   EXPECT_EQ(static_cast<int>(range), sim.GetRange());
@@ -116,7 +116,7 @@ TEST(AcclerometerSimTest, SetRange) {
 
   // 4G
   callback.Reset();
-  range = Accelerometer::kRange_4G;
+  range = BuiltInAccelerometer::kRange_4G;
   accel.SetRange(range);
   EXPECT_TRUE(callback.WasTriggered());
   EXPECT_EQ(static_cast<int>(range), sim.GetRange());
@@ -124,15 +124,10 @@ TEST(AcclerometerSimTest, SetRange) {
 
   // 8G
   callback.Reset();
-  range = Accelerometer::kRange_8G;
+  range = BuiltInAccelerometer::kRange_8G;
   accel.SetRange(range);
   EXPECT_TRUE(callback.WasTriggered());
   EXPECT_EQ(static_cast<int>(range), sim.GetRange());
   EXPECT_EQ(static_cast<int>(range), callback.GetLastValue());
-
-  // 16G - Not supported
-  callback.Reset();
-  EXPECT_THROW(accel.SetRange(Accelerometer::kRange_16G), std::runtime_error);
-  EXPECT_FALSE(callback.WasTriggered());
 }
 }  // namespace frc::sim

@@ -22,11 +22,6 @@ BuiltInAccelerometer::BuiltInAccelerometer(Range range) {
 }
 
 void BuiltInAccelerometer::SetRange(Range range) {
-  if (range == kRange_16G) {
-    throw FRC_MakeError(err::ParameterOutOfRange,
-                        "16G range not supported (use k2G, k4G, or k8G)");
-  }
-
   HAL_SetAccelerometerActive(false);
   HAL_SetAccelerometerRange(static_cast<HAL_AccelerometerRange>(range));
   HAL_SetAccelerometerActive(true);
@@ -46,10 +41,7 @@ double BuiltInAccelerometer::GetZ() {
 
 void BuiltInAccelerometer::InitSendable(wpi::SendableBuilder& builder) {
   builder.SetSmartDashboardType("3AxisAccelerometer");
-  builder.AddDoubleProperty(
-      "X", [=, this] { return GetX(); }, nullptr);
-  builder.AddDoubleProperty(
-      "Y", [=, this] { return GetY(); }, nullptr);
-  builder.AddDoubleProperty(
-      "Z", [=, this] { return GetZ(); }, nullptr);
+  builder.AddDoubleProperty("X", [=, this] { return GetX(); }, nullptr);
+  builder.AddDoubleProperty("Y", [=, this] { return GetY(); }, nullptr);
+  builder.AddDoubleProperty("Z", [=, this] { return GetZ(); }, nullptr);
 }

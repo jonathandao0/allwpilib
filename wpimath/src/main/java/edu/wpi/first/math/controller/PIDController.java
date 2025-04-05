@@ -24,6 +24,9 @@ public class PIDController implements Sendable, AutoCloseable {
   // Factor for "derivative" control
   private double m_kd;
 
+  // The error range where "integral" control applies
+  private double m_iZone = Double.POSITIVE_INFINITY;
+
   // The period (in seconds) of the loop that calls the controller
   private final double m_period;
 
@@ -39,8 +42,8 @@ public class PIDController implements Sendable, AutoCloseable {
   private boolean m_continuous;
 
   // The error at the time of the most recent call to calculate()
-  private double m_positionError;
-  private double m_velocityError;
+  private double m_error;
+  private double m_errorDerivative;
 
   // The error at the time of the second-most-recent call to calculate() (used to compute velocity)
   private double m_prevError;
@@ -49,11 +52,14 @@ public class PIDController implements Sendable, AutoCloseable {
   private double m_totalError;
 
   // The error that is considered at setpoint.
-  private double m_positionTolerance = 0.05;
-  private double m_velocityTolerance = Double.POSITIVE_INFINITY;
+  private double m_errorTolerance = 0.05;
+  private double m_errorDerivativeTolerance = Double.POSITIVE_INFINITY;
 
   private double m_setpoint;
   private double m_measurement;
+
+  private boolean m_haveMeasurement;
+  private boolean m_haveSetpoint;
 
   /**
    * Allocates a PIDController with the given constants for kp, ki, and kd and a default period of
@@ -62,6 +68,9 @@ public class PIDController implements Sendable, AutoCloseable {
    * @param kp The proportional coefficient.
    * @param ki The integral coefficient.
    * @param kd The derivative coefficient.
+   * @throws IllegalArgumentException if kp &lt; 0
+   * @throws IllegalArgumentException if ki &lt; 0
+   * @throws IllegalArgumentException if kd &lt; 0
    */
   public PIDController(double kp, double ki, double kd) {
     this(kp, ki, kd, 0.02);
@@ -73,15 +82,29 @@ public class PIDController implements Sendable, AutoCloseable {
    * @param kp The proportional coefficient.
    * @param ki The integral coefficient.
    * @param kd The derivative coefficient.
-   * @param period The period between controller updates in seconds. Must be non-zero and positive.
+   * @param period The period between controller updates in seconds.
+   * @throws IllegalArgumentException if kp &lt; 0
+   * @throws IllegalArgumentException if ki &lt; 0
+   * @throws IllegalArgumentException if kd &lt; 0
+   * @throws IllegalArgumentException if period &lt;= 0
    */
+  @SuppressWarnings("this-escape")
   public PIDController(double kp, double ki, double kd, double period) {
     m_kp = kp;
     m_ki = ki;
     m_kd = kd;
 
-    if (period <= 0) {
-      throw new IllegalArgumentException("Controller period must be a non-zero positive number!");
+    if (kp < 0.0) {
+      throw new IllegalArgumentException("Kp must be a non-negative number!");
+    }
+    if (ki < 0.0) {
+      throw new IllegalArgumentException("Ki must be a non-negative number!");
+    }
+    if (kd < 0.0) {
+      throw new IllegalArgumentException("Kd must be a non-negative number!");
+    }
+    if (period <= 0.0) {
+      throw new IllegalArgumentException("Controller period must be a positive number!");
     }
     m_period = period;
 
@@ -114,7 +137,7 @@ public class PIDController implements Sendable, AutoCloseable {
   /**
    * Sets the Proportional coefficient of the PID controller gain.
    *
-   * @param kp proportional coefficient
+   * @param kp The proportional coefficient. Must be &gt;= 0.
    */
   public void setP(double kp) {
     m_kp = kp;
@@ -123,7 +146,7 @@ public class PIDController implements Sendable, AutoCloseable {
   /**
    * Sets the Integral coefficient of the PID controller gain.
    *
-   * @param ki integral coefficient
+   * @param ki The integral coefficient. Must be &gt;= 0.
    */
   public void setI(double ki) {
     m_ki = ki;
@@ -132,10 +155,27 @@ public class PIDController implements Sendable, AutoCloseable {
   /**
    * Sets the Differential coefficient of the PID controller gain.
    *
-   * @param kd differential coefficient
+   * @param kd The differential coefficient. Must be &gt;= 0.
    */
   public void setD(double kd) {
     m_kd = kd;
+  }
+
+  /**
+   * Sets the IZone range. When the absolute value of the position error is greater than IZone, the
+   * total accumulated error will reset to zero, disabling integral gain until the absolute value of
+   * the position error is less than IZone. This is used to prevent integral windup. Must be
+   * non-negative. Passing a value of zero will effectively disable integral gain. Passing a value
+   * of {@link Double#POSITIVE_INFINITY} disables IZone functionality.
+   *
+   * @param iZone Maximum magnitude of error to allow integral control.
+   * @throws IllegalArgumentException if iZone &lt; 0
+   */
+  public void setIZone(double iZone) {
+    if (iZone < 0) {
+      throw new IllegalArgumentException("IZone must be a non-negative number!");
+    }
+    m_iZone = iZone;
   }
 
   /**
@@ -166,6 +206,15 @@ public class PIDController implements Sendable, AutoCloseable {
   }
 
   /**
+   * Get the IZone range.
+   *
+   * @return Maximum magnitude of error to allow integral control.
+   */
+  public double getIZone() {
+    return m_iZone;
+  }
+
+  /**
    * Returns the period of this controller.
    *
    * @return the period of the controller.
@@ -178,18 +227,49 @@ public class PIDController implements Sendable, AutoCloseable {
    * Returns the position tolerance of this controller.
    *
    * @return the position tolerance of the controller.
+   * @deprecated Use getErrorTolerance() instead.
    */
+  @Deprecated(forRemoval = true, since = "2025")
   public double getPositionTolerance() {
-    return m_positionTolerance;
+    return m_errorTolerance;
   }
 
   /**
    * Returns the velocity tolerance of this controller.
    *
    * @return the velocity tolerance of the controller.
+   * @deprecated Use getErrorDerivativeTolerance() instead.
    */
+  @Deprecated(forRemoval = true, since = "2025")
   public double getVelocityTolerance() {
-    return m_velocityTolerance;
+    return m_errorDerivativeTolerance;
+  }
+
+  /**
+   * Returns the error tolerance of this controller. Defaults to 0.05.
+   *
+   * @return the error tolerance of the controller.
+   */
+  public double getErrorTolerance() {
+    return m_errorTolerance;
+  }
+
+  /**
+   * Returns the error derivative tolerance of this controller. Defaults to ∞.
+   *
+   * @return the error derivative tolerance of the controller.
+   */
+  public double getErrorDerivativeTolerance() {
+    return m_errorDerivativeTolerance;
+  }
+
+  /**
+   * Returns the accumulated error used in the integral calculation of this controller.
+   *
+   * @return The accumulated error of this controller.
+   */
+  public double getAccumulatedError() {
+    return m_totalError;
   }
 
   /**
@@ -199,15 +279,16 @@ public class PIDController implements Sendable, AutoCloseable {
    */
   public void setSetpoint(double setpoint) {
     m_setpoint = setpoint;
+    m_haveSetpoint = true;
 
     if (m_continuous) {
       double errorBound = (m_maximumInput - m_minimumInput) / 2.0;
-      m_positionError = MathUtil.inputModulus(m_setpoint - m_measurement, -errorBound, errorBound);
+      m_error = MathUtil.inputModulus(m_setpoint - m_measurement, -errorBound, errorBound);
     } else {
-      m_positionError = m_setpoint - m_measurement;
+      m_error = m_setpoint - m_measurement;
     }
 
-    m_velocityError = (m_positionError - m_prevError) / m_period;
+    m_errorDerivative = (m_error - m_prevError) / m_period;
   }
 
   /**
@@ -220,15 +301,18 @@ public class PIDController implements Sendable, AutoCloseable {
   }
 
   /**
-   * Returns true if the error is within the tolerance of the setpoint.
+   * Returns true if the error is within the tolerance of the setpoint. The error tolerance defaults
+   * to 0.05, and the error derivative tolerance defaults to ∞.
    *
    * <p>This will return false until at least one input value has been computed.
    *
    * @return Whether the error is within the acceptable bounds.
    */
   public boolean atSetpoint() {
-    return Math.abs(m_positionError) < m_positionTolerance
-        && Math.abs(m_velocityError) < m_velocityTolerance;
+    return m_haveMeasurement
+        && m_haveSetpoint
+        && Math.abs(m_error) < m_errorTolerance
+        && Math.abs(m_errorDerivative) < m_errorDerivativeTolerance;
   }
 
   /**
@@ -261,13 +345,13 @@ public class PIDController implements Sendable, AutoCloseable {
   }
 
   /**
-   * Sets the minimum and maximum values for the integrator.
+   * Sets the minimum and maximum contributions of the integral term.
    *
-   * <p>When the cap is reached, the integrator value is added to the controller output rather than
-   * the integrator value times the integral gain.
+   * <p>The internal integrator is clamped so that the integral term's contribution to the output
+   * stays between minimumIntegral and maximumIntegral. This prevents integral windup.
    *
-   * @param minimumIntegral The minimum value of the integrator.
-   * @param maximumIntegral The maximum value of the integrator.
+   * @param minimumIntegral The minimum contribution of the integral term.
+   * @param maximumIntegral The maximum contribution of the integral term.
    */
   public void setIntegratorRange(double minimumIntegral, double maximumIntegral) {
     m_minimumIntegral = minimumIntegral;
@@ -277,21 +361,43 @@ public class PIDController implements Sendable, AutoCloseable {
   /**
    * Sets the error which is considered tolerable for use with atSetpoint().
    *
-   * @param positionTolerance Position error which is tolerable.
+   * @param errorTolerance Error which is tolerable.
    */
-  public void setTolerance(double positionTolerance) {
-    setTolerance(positionTolerance, Double.POSITIVE_INFINITY);
+  public void setTolerance(double errorTolerance) {
+    setTolerance(errorTolerance, Double.POSITIVE_INFINITY);
   }
 
   /**
    * Sets the error which is considered tolerable for use with atSetpoint().
    *
-   * @param positionTolerance Position error which is tolerable.
-   * @param velocityTolerance Velocity error which is tolerable.
+   * @param errorTolerance Error which is tolerable.
+   * @param errorDerivativeTolerance Error derivative which is tolerable.
    */
-  public void setTolerance(double positionTolerance, double velocityTolerance) {
-    m_positionTolerance = positionTolerance;
-    m_velocityTolerance = velocityTolerance;
+  public void setTolerance(double errorTolerance, double errorDerivativeTolerance) {
+    m_errorTolerance = errorTolerance;
+    m_errorDerivativeTolerance = errorDerivativeTolerance;
+  }
+
+  /**
+   * Returns the difference between the setpoint and the measurement.
+   *
+   * @return The error.
+   * @deprecated Use getError() instead.
+   */
+  @Deprecated(forRemoval = true, since = "2025")
+  public double getPositionError() {
+    return m_error;
+  }
+
+  /**
+   * Returns the velocity error.
+   *
+   * @return The velocity error.
+   * @deprecated Use getErrorDerivative() instead.
+   */
+  @Deprecated(forRemoval = true, since = "2025")
+  public double getVelocityError() {
+    return m_errorDerivative;
   }
 
   /**
@@ -299,17 +405,17 @@ public class PIDController implements Sendable, AutoCloseable {
    *
    * @return The error.
    */
-  public double getPositionError() {
-    return m_positionError;
+  public double getError() {
+    return m_error;
   }
 
   /**
-   * Returns the velocity error.
+   * Returns the error derivative.
    *
-   * @return The velocity error.
+   * @return The error derivative.
    */
-  public double getVelocityError() {
-    return m_velocityError;
+  public double getErrorDerivative() {
+    return m_errorDerivative;
   }
 
   /**
@@ -321,6 +427,7 @@ public class PIDController implements Sendable, AutoCloseable {
    */
   public double calculate(double measurement, double setpoint) {
     m_setpoint = setpoint;
+    m_haveSetpoint = true;
     return calculate(measurement);
   }
 
@@ -332,34 +439,39 @@ public class PIDController implements Sendable, AutoCloseable {
    */
   public double calculate(double measurement) {
     m_measurement = measurement;
-    m_prevError = m_positionError;
+    m_prevError = m_error;
+    m_haveMeasurement = true;
 
     if (m_continuous) {
       double errorBound = (m_maximumInput - m_minimumInput) / 2.0;
-      m_positionError = MathUtil.inputModulus(m_setpoint - m_measurement, -errorBound, errorBound);
+      m_error = MathUtil.inputModulus(m_setpoint - m_measurement, -errorBound, errorBound);
     } else {
-      m_positionError = m_setpoint - m_measurement;
+      m_error = m_setpoint - m_measurement;
     }
 
-    m_velocityError = (m_positionError - m_prevError) / m_period;
+    m_errorDerivative = (m_error - m_prevError) / m_period;
 
-    if (m_ki != 0) {
+    // If the absolute value of the position error is greater than IZone, reset the total error
+    if (Math.abs(m_error) > m_iZone) {
+      m_totalError = 0;
+    } else if (m_ki != 0) {
       m_totalError =
           MathUtil.clamp(
-              m_totalError + m_positionError * m_period,
+              m_totalError + m_error * m_period,
               m_minimumIntegral / m_ki,
               m_maximumIntegral / m_ki);
     }
 
-    return m_kp * m_positionError + m_ki * m_totalError + m_kd * m_velocityError;
+    return m_kp * m_error + m_ki * m_totalError + m_kd * m_errorDerivative;
   }
 
   /** Resets the previous error and the integral term. */
   public void reset() {
-    m_positionError = 0;
+    m_error = 0;
     m_prevError = 0;
     m_totalError = 0;
-    m_velocityError = 0;
+    m_errorDerivative = 0;
+    m_haveMeasurement = false;
   }
 
   @Override
@@ -368,6 +480,21 @@ public class PIDController implements Sendable, AutoCloseable {
     builder.addDoubleProperty("p", this::getP, this::setP);
     builder.addDoubleProperty("i", this::getI, this::setI);
     builder.addDoubleProperty("d", this::getD, this::setD);
+    builder.addDoubleProperty(
+        "izone",
+        this::getIZone,
+        (double toSet) -> {
+          try {
+            setIZone(toSet);
+          } catch (IllegalArgumentException e) {
+            MathSharedStore.reportError("IZone must be a non-negative number!", e.getStackTrace());
+          }
+        });
     builder.addDoubleProperty("setpoint", this::getSetpoint, this::setSetpoint);
+    builder.addDoubleProperty("measurement", () -> m_measurement, null);
+    builder.addDoubleProperty("error", this::getError, null);
+    builder.addDoubleProperty("error derivative", this::getErrorDerivative, null);
+    builder.addDoubleProperty("previous error", () -> this.m_prevError, null);
+    builder.addDoubleProperty("total error", this::getAccumulatedError, null);
   }
 }

@@ -9,11 +9,17 @@ import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.util.sendable.SendableRegistry;
 import edu.wpi.first.wpilibj.MotorSafety;
 import edu.wpi.first.wpilibj.PWM;
+import edu.wpi.first.wpilibj.RobotController;
+import java.util.ArrayList;
 
 /** Common base class for all PWM Motor Controllers. */
+@SuppressWarnings("removal")
 public abstract class PWMMotorController extends MotorSafety
     implements MotorController, Sendable, AutoCloseable {
   private boolean m_isInverted;
+  private final ArrayList<PWMMotorController> m_followers = new ArrayList<>();
+
+  /** PWM instances for motor controller. */
   protected PWM m_pwm;
 
   /**
@@ -23,6 +29,7 @@ public abstract class PWMMotorController extends MotorSafety
    * @param channel The PWM channel that the controller is attached to. 0-9 are on-board, 10-19 are
    *     on the MXP port
    */
+  @SuppressWarnings("this-escape")
   protected PWMMotorController(final String name, final int channel) {
     m_pwm = new PWM(channel, false);
     SendableRegistry.addLW(this, name, channel);
@@ -45,7 +52,15 @@ public abstract class PWMMotorController extends MotorSafety
    */
   @Override
   public void set(double speed) {
-    m_pwm.setSpeed(m_isInverted ? -speed : speed);
+    if (m_isInverted) {
+      speed = -speed;
+    }
+    m_pwm.setSpeed(speed);
+
+    for (var follower : m_followers) {
+      follower.set(speed);
+    }
+
     feed();
   }
 
@@ -61,6 +76,15 @@ public abstract class PWMMotorController extends MotorSafety
     return m_pwm.getSpeed() * (m_isInverted ? -1.0 : 1.0);
   }
 
+  /**
+   * Gets the voltage output of the motor controller, nominally between -12 V and 12 V.
+   *
+   * @return The voltage of the motor controller, nominally between -12 V and 12 V.
+   */
+  public double getVoltage() {
+    return get() * RobotController.getBatteryVoltage();
+  }
+
   @Override
   public void setInverted(boolean isInverted) {
     m_isInverted = isInverted;
@@ -74,12 +98,20 @@ public abstract class PWMMotorController extends MotorSafety
   @Override
   public void disable() {
     m_pwm.setDisabled();
+
+    for (var follower : m_followers) {
+      follower.disable();
+    }
   }
 
   @Override
   public void stopMotor() {
     // Don't use set(0) as that will feed the watch kitty
     m_pwm.setSpeed(0);
+
+    for (var follower : m_followers) {
+      follower.stopMotor();
+    }
   }
 
   @Override
@@ -114,6 +146,15 @@ public abstract class PWMMotorController extends MotorSafety
    */
   public void enableDeadbandElimination(boolean eliminateDeadband) {
     m_pwm.enableDeadbandElimination(eliminateDeadband);
+  }
+
+  /**
+   * Make the given PWM motor controller follow the output of this one.
+   *
+   * @param follower The motor controller follower.
+   */
+  public void addFollower(PWMMotorController follower) {
+    m_followers.add(follower);
   }
 
   @Override

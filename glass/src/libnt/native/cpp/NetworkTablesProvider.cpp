@@ -5,6 +5,8 @@
 #include "glass/networktables/NetworkTablesProvider.h"
 
 #include <algorithm>
+#include <memory>
+#include <utility>
 
 #include <fmt/format.h>
 #include <ntcore_cpp.h>
@@ -26,7 +28,8 @@ NetworkTablesProvider::NetworkTablesProvider(Storage& storage,
       m_poller{inst},
       m_typeCache{storage.GetChild("types")} {
   storage.SetCustomApply([this] {
-    m_listener = m_poller.AddListener({{""}}, nt::EventFlags::kTopic);
+    m_listener = m_poller.AddListener(
+        {{""}}, nt::EventFlags::kImmediate | nt::EventFlags::kTopic);
     for (auto&& childIt : m_storage.GetChildren()) {
       auto id = childIt.key();
       auto typePtr = m_typeCache.FindValue(id);
@@ -83,6 +86,18 @@ void NetworkTablesProvider::DisplayMenu() {
       // FIXME: enabled?
       // data is the last item, so is guaranteed to be null-terminated
       ImGui::MenuItem(path.back().data(), nullptr, &visible, true);
+      // Add type label to smartdashboard sendables
+      if (wpi::starts_with(entry->name, "/SmartDashboard/")) {
+        auto typeEntry = m_typeCache.FindValue(entry->name);
+        if (typeEntry) {
+          ImGui::SameLine();
+          ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+          ImGui::Text("%s", typeEntry->stringVal.c_str());
+          ImGui::PopStyleColor();
+          ImGui::SameLine();
+          ImGui::Dummy(ImVec2(10.0f, 0.0f));
+        }
+      }
       if (!wasVisible && visible) {
         Show(entry.get(), entry->window);
       } else if (wasVisible && !visible && entry->window) {
@@ -145,7 +160,8 @@ void NetworkTablesProvider::Update() {
       }
 
       auto topicName = nt::GetTopicName(valueData->topic);
-      auto tableName = wpi::drop_back(topicName, 6);
+      auto tableName =
+          wpi::remove_suffix(topicName, "/.type").value_or(topicName);
 
       GetOrCreateView(builderIt->second, nt::Topic{valueData->topic},
                       tableName);
@@ -184,9 +200,8 @@ void NetworkTablesProvider::Show(ViewEntry* entry, Window* window) {
   if (!window) {
     return;
   }
-  if (wpi::starts_with(entry->name, "/SmartDashboard/")) {
-    window->SetDefaultName(
-        fmt::format("{} (SmartDashboard)", wpi::drop_front(entry->name, 16)));
+  if (auto name = wpi::remove_prefix(entry->name, "/SmartDashboard/")) {
+    window->SetDefaultName(fmt::format("{} (SmartDashboard)", *name));
   }
   entry->window = window;
 

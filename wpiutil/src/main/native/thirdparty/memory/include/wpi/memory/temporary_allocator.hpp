@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_TEMPORARY_ALLOCATOR_HPP_INCLUDED
 #define WPI_MEMORY_TEMPORARY_ALLOCATOR_HPP_INCLUDED
@@ -92,7 +91,7 @@ namespace wpi
 
         /// A wrapper around the \ref memory_stack that is used by the \ref temporary_allocator.
         /// There should be at least one per-thread.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         class temporary_stack : WPI_EBO(detail::temporary_stack_list_node)
         {
         public:
@@ -195,7 +194,7 @@ namespace wpi
             /// \effects Destroys the per-thread stack if it isn't already destroyed.
             ~temporary_stack_initializer() noexcept;
 
-            temporary_stack_initializer(temporary_stack_initializer&&) = delete;
+            temporary_stack_initializer(temporary_stack_initializer&&)            = delete;
             temporary_stack_initializer& operator=(temporary_stack_initializer&&) = delete;
         };
 
@@ -210,13 +209,13 @@ namespace wpi
         temporary_stack& get_temporary_stack(
             std::size_t initial_size = temporary_stack_initializer::default_stack_size);
 
-        /// A stateful \concept{concept_rawallocator,RawAllocator} that handles temporary allocations.
+        /// A stateful RawAllocator that handles temporary allocations.
         /// It works similar to \c alloca() but uses a seperate \ref memory_stack for the allocations,
         /// instead of the actual program stack.
         /// This avoids the stack overflow error and is portable,
         /// with a similar speed.
         /// All allocations done in the scope of the allocator object are automatically freed when the object is destroyed.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         class temporary_allocator
         {
         public:
@@ -229,7 +228,7 @@ namespace wpi
 
             ~temporary_allocator() noexcept;
 
-            temporary_allocator(temporary_allocator&&) = delete;
+            temporary_allocator(temporary_allocator&&)            = delete;
             temporary_allocator& operator=(temporary_allocator&&) = delete;
 
             /// \effects Allocates memory from the internal \ref memory_stack by forwarding to it.
@@ -268,7 +267,7 @@ namespace wpi
         /// Specialization of the \ref allocator_traits for \ref temporary_allocator classes.
         /// \note It is not allowed to mix calls through the specialization and through the member functions,
         /// i.e. \ref temporary_allocator::allocate() and this \c allocate_node().
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         template <>
         class allocator_traits<temporary_allocator>
         {

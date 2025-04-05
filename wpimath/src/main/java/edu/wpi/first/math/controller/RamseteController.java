@@ -28,17 +28,16 @@ import edu.wpi.first.math.trajectory.Trajectory;
  * that's the acronym for the title of the book it came from in Italian ("Robotica Articolata e
  * Mobile per i SErvizi e le TEcnologie").
  *
- * <p>See <a href="https://file.tavsys.net/control/controls-engineering-in-frc.pdf">Controls
- * Engineering in the FIRST Robotics Competition</a> section on Ramsete unicycle controller for a
- * derivation and analysis.
+ * <p>See <a href="https://file.tavsys.net/control/ramsete-unicycle-controller.pdf">this paper</a>
+ * for a derivation and analysis.
  */
 public class RamseteController {
   private final double m_b;
 
   private final double m_zeta;
 
-  private Pose2d m_poseError = new Pose2d();
-  private Pose2d m_poseTolerance = new Pose2d();
+  private Pose2d m_poseError = Pose2d.kZero;
+  private Pose2d m_poseTolerance = Pose2d.kZero;
   private boolean m_enabled = true;
 
   /**
@@ -48,7 +47,9 @@ public class RamseteController {
    *     aggressive like a proportional term.
    * @param zeta Tuning parameter (0 rad⁻¹ &lt; zeta &lt; 1 rad⁻¹) for which larger values provide
    *     more damping in response.
+   * @deprecated Use LTVUnicycleController instead.
    */
+  @Deprecated(since = "2025", forRemoval = true)
   public RamseteController(double b, double zeta) {
     m_b = b;
     m_zeta = zeta;
@@ -57,7 +58,10 @@ public class RamseteController {
   /**
    * Construct a Ramsete unicycle controller. The default arguments for b and zeta of 2.0 rad²/m²
    * and 0.7 rad⁻¹ have been well-tested to produce desirable results.
+   *
+   * @deprecated Use LTVUnicycleController instead.
    */
+  @Deprecated(since = "2025", forRemoval = true)
   public RamseteController() {
     this(2.0, 0.7);
   }

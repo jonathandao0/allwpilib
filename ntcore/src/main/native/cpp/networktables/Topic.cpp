@@ -7,8 +7,13 @@
 #include <wpi/json.h>
 
 #include "networktables/GenericEntry.h"
+#include "networktables/NetworkTableInstance.h"
 
 using namespace nt;
+
+NetworkTableInstance Topic::GetInstance() const {
+  return NetworkTableInstance{GetInstanceFromHandle(m_handle)};
+}
 
 wpi::json Topic::GetProperty(std::string_view name) const {
   return ::nt::GetTopicProperty(m_handle, name);
@@ -55,3 +60,7 @@ GenericEntry Topic::GetGenericEntry(std::string_view typeString,
   return GenericEntry{::nt::GetEntry(
       m_handle, ::nt::GetTypeFromString(typeString), typeString, options)};
 }
+
+void Publisher::anchor() {}
+
+void Subscriber::anchor() {}

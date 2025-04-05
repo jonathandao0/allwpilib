@@ -14,17 +14,27 @@
 
 #endif
 
+#include <wpi/string.h>
+
 #include "hal/Types.h"
 
 /**
  * @defgroup hal_capi WPILib HAL API
- * Hardware Abstraction Layer to hardware or simulator
+ * Hardware Abstraction Layer (HAL) to hardware or simulator
  * @{
  */
 
-// clang-format off
-HAL_ENUM(HAL_RuntimeType) { HAL_Runtime_RoboRIO, HAL_Runtime_RoboRIO2, HAL_Runtime_Simulation };
-// clang-format on
+/**
+ * Runtime type.
+ */
+HAL_ENUM(HAL_RuntimeType) {
+  /** roboRIO 1.0 */
+  HAL_Runtime_RoboRIO,
+  /** roboRIO 2.0 */
+  HAL_Runtime_RoboRIO2,
+  /** Simulation runtime */
+  HAL_Runtime_Simulation
+};
 
 #ifdef __cplusplus
 extern "C" {
@@ -75,22 +85,24 @@ int32_t HAL_GetFPGAVersion(int32_t* status);
 int64_t HAL_GetFPGARevision(int32_t* status);
 
 /**
- * Returns the serial number.
+ * Returns the roboRIO serial number.
  *
- * @param[out] buffer The serial number.
- * @param size The maximum characters to copy into buffer.
- * @return Number of characters copied into buffer.
+ * @param[out] serialNumber The roboRIO serial number. Free with WPI_FreeString
  */
-size_t HAL_GetSerialNumber(char* buffer, size_t size);
+void HAL_GetSerialNumber(struct WPI_String* serialNumber);
 
 /**
  * Returns the comments from the roboRIO web interface.
  *
- * @param[out] buffer The comments string.
- * @param size The maximum characters to copy into buffer.
- * @return Number of characters copied into buffer.
+ * @param[out] comments The comments string. Free with WPI_FreeString
  */
-size_t HAL_GetComments(char* buffer, size_t size);
+void HAL_GetComments(struct WPI_String* comments);
+
+/**
+ * Returns the team number configured for the robot controller.
+ * @return team number, or 0 if not found.
+ */
+int32_t HAL_GetTeamNumber(void);
 
 /**
  * Returns the runtime type of the HAL.
@@ -102,13 +114,17 @@ HAL_RuntimeType HAL_GetRuntimeType(void);
 /**
  * Gets the state of the "USER" button on the roboRIO.
  *
+ * @warning the User Button is used to stop user programs from automatically
+ * loading if it is held for more then 5 seconds. Because of this, it's not
+ * recommended to be used by teams for any other purpose.
+ *
  * @param[out] status the error code, or 0 for success
  * @return true if the button is currently pressed down
  */
 HAL_Bool HAL_GetFPGAButton(int32_t* status);
 
 /**
- * Gets if the system outputs are currently active
+ * Gets if the system outputs are currently active.
  *
  * @param[out] status the error code, or 0 for success
  * @return true if the system outputs are active, false if disabled
@@ -122,6 +138,13 @@ HAL_Bool HAL_GetSystemActive(int32_t* status);
  * @return true if the system is in a low voltage brown out, false otherwise
  */
 HAL_Bool HAL_GetBrownedOut(int32_t* status);
+
+/**
+ * Gets the number of times the system has been disabled due to communication
+ * errors with the Driver Station.
+ * @return number of disables due to communication errors.
+ */
+int32_t HAL_GetCommsDisableCount(int32_t* status);
 
 /**
  * Gets a port handle for a specific channel.
@@ -171,6 +194,22 @@ uint64_t HAL_GetFPGATime(int32_t* status);
  *         reset) as a 64 bit number.
  */
 uint64_t HAL_ExpandFPGATime(uint32_t unexpandedLower, int32_t* status);
+
+/**
+ * Gets the current state of the Robot Signal Light (RSL).
+ *
+ * @param[out] status the error code, or 0 for success
+ * @return The current state of the RSL- true if on, false if off
+ */
+HAL_Bool HAL_GetRSLState(int32_t* status);
+
+/**
+ * Gets if the system time is valid.
+ *
+ * @param[out] status the error code, or 0 for success
+ * @return True if the system time is valid, false otherwise
+ */
+HAL_Bool HAL_GetSystemTimeValid(int32_t* status);
 
 /**
  * Call this to start up HAL. This is required for robot programs.

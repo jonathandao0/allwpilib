@@ -11,7 +11,7 @@ def licenseFile = file("$rootDir/license.md")
 task cppSourcesZip(type: Zip) {
     destinationDirectory = outputsFolder
     archiveBaseName = zipBaseName
-    classifier = "sources"
+    archiveClassifier = "sources"
 
     from(licenseFile) {
         into '/'
@@ -20,19 +20,23 @@ task cppSourcesZip(type: Zip) {
     from('src/main/native/cpp') {
         into '/'
     }
+    from("$buildDir/generated/cpp") {
+        into '/'
+    }
 }
 
 task cppHeadersZip(type: Zip) {
     destinationDirectory = outputsFolder
     archiveBaseName = zipBaseName
-    classifier = "headers"
+    archiveClassifier = "headers"
 
     from(licenseFile) {
         into '/'
     }
 
     ext.includeDirs = [
-        project.file('src/main/native/include')
+        project.file('src/main/native/include'),
+        project.file('src/generated/main/native/include')
     ]
 
     ext.includeDirs.each {

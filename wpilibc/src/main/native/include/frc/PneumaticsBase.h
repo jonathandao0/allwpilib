@@ -18,6 +18,10 @@ namespace frc {
 class Solenoid;
 class DoubleSolenoid;
 class Compressor;
+
+/**
+ * Base class for pneumatics devices.
+ */
 class PneumaticsBase {
  public:
   virtual ~PneumaticsBase() = default;
@@ -117,15 +121,18 @@ class PneumaticsBase {
   /**
    * Sets solenoids on a pneumatics module.
    *
-   * @param mask mask
-   * @param values values
+   * @param mask Bitmask indicating which solenoids to set. The LSB represents
+   * solenoid 0.
+   * @param values Bitmask indicating the desired states of the solenoids. The
+   * LSB represents solenoid 0.
    */
   virtual void SetSolenoids(int mask, int values) = 0;
 
   /**
    * Gets a bitmask of solenoid values.
    *
-   * @return values
+   * @return Bitmask containing the state of the solenoids. The LSB represents
+   * solenoid 0.
    */
   virtual int GetSolenoids() const = 0;
 
@@ -139,7 +146,8 @@ class PneumaticsBase {
   /**
    * Get a bitmask of disabled solenoids.
    *
-   * @return bitmask of disabled solenoids
+   * @return Bitmask indicating disabled solenoids. The LSB represents solenoid
+   * 0.
    */
   virtual int GetSolenoidDisabledList() const = 0;
 
@@ -167,24 +175,34 @@ class PneumaticsBase {
   virtual bool CheckSolenoidChannel(int channel) const = 0;
 
   /**
-   * Check to see if the masked solenoids can be reserved, and if not reserve
-   * them.
+   * Check to see if the solenoids marked in the bitmask can be reserved, and if
+   * so, reserve them.
    *
-   * @param mask The bitmask of solenoids to reserve
+   * @param mask The bitmask of solenoids to reserve. The LSB represents
+   * solenoid 0.
    * @return 0 if successful; mask of solenoids that couldn't be allocated
    * otherwise
    */
   virtual int CheckAndReserveSolenoids(int mask) = 0;
 
   /**
-   * Unreserve the masked solenoids.
+   * Unreserve the solenoids marked in the bitmask.
    *
-   * @param mask The bitmask of solenoids to unreserve
+   * @param mask The bitmask of solenoids to unreserve. The LSB represents
+   * solenoid 0.
    */
   virtual void UnreserveSolenoids(int mask) = 0;
 
+  /**
+   * Reserve the compressor.
+   *
+   * @return true if successful; false if compressor already reserved
+   */
   virtual bool ReserveCompressor() = 0;
 
+  /**
+   * Unreserve the compressor.
+   */
   virtual void UnreserveCompressor() = 0;
 
   /**
@@ -212,9 +230,29 @@ class PneumaticsBase {
    */
   virtual units::pounds_per_square_inch_t GetPressure(int channel) const = 0;
 
+  /**
+   * Create a solenoid object for the specified channel.
+   *
+   * @param channel solenoid channel
+   * @return Solenoid object
+   */
   virtual Solenoid MakeSolenoid(int channel) = 0;
+
+  /**
+   * Create a double solenoid object for the specified channels.
+   *
+   * @param forwardChannel solenoid channel for forward
+   * @param reverseChannel solenoid channel for reverse
+   * @return DoubleSolenoid object
+   */
   virtual DoubleSolenoid MakeDoubleSolenoid(int forwardChannel,
                                             int reverseChannel) = 0;
+
+  /**
+   * Create a compressor object.
+   *
+   * @return Compressor object
+   */
   virtual Compressor MakeCompressor() = 0;
 
   /**

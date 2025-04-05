@@ -12,6 +12,17 @@ package edu.wpi.first.wpilibj;
  */
 public class Timer {
   /**
+   * Return the clock time in seconds. By default, the time is based on the FPGA hardware clock in
+   * seconds since the FPGA started. However, the return value of this method may be modified to use
+   * any time base, including non-monotonic time bases.
+   *
+   * @return Robot running time in seconds.
+   */
+  public static double getTimestamp() {
+    return RobotController.getTime() / 1000000.0;
+  }
+
+  /**
    * Return the system clock time in seconds. Return the time from the FPGA hardware clock in
    * seconds since the FPGA started.
    *
@@ -60,7 +71,7 @@ public class Timer {
   }
 
   private double getMsClock() {
-    return RobotController.getFPGATime() / 1000.0;
+    return RobotController.getTime() / 1000.0;
   }
 
   /**
@@ -83,7 +94,7 @@ public class Timer {
    *
    * <p>Make the timer startTime the current time so new requests will be relative now.
    */
-  public void reset() {
+  public final void reset() {
     m_accumulatedTime = 0;
     m_startTime = getMsClock();
   }
@@ -98,6 +109,19 @@ public class Timer {
       m_startTime = getMsClock();
       m_running = true;
     }
+  }
+
+  /**
+   * Restart the timer by stopping the timer, if it is not already stopped, resetting the
+   * accumulated time, then starting the timer again. If you want an event to periodically reoccur
+   * at some time interval from the start time, consider using advanceIfElapsed() instead.
+   */
+  public void restart() {
+    if (m_running) {
+      stop();
+    }
+    reset();
+    start();
   }
 
   /**
@@ -137,5 +161,14 @@ public class Timer {
     } else {
       return false;
     }
+  }
+
+  /**
+   * Whether the timer is currently running.
+   *
+   * @return true if running.
+   */
+  public boolean isRunning() {
+    return m_running;
   }
 }

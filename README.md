@@ -17,13 +17,15 @@ Welcome to the WPILib project. This repository contains the HAL, WPILibJ, and WP
     - [Custom toolchain location](#custom-toolchain-location)
     - [Formatting/Linting](#formattinglinting)
     - [CMake](#cmake)
+    - [Bazel](#bazel)
+  - [Running examples in simulation](#running-examples-in-simulation)
   - [Publishing](#publishing)
   - [Structure and Organization](#structure-and-organization)
-- [Contributing to WPILib](#contributing-to-wpilib)
+- [Contributing to WPILib](./CONTRIBUTING.md)
 
 ## WPILib Mission
 
-The WPILib Mission is to enable FIRST Robotics teams to focus on writing game-specific software rather than focusing on hardware details - "raise the floor, don't lower the ceiling". We work to enable teams with limited programming knowledge and/or mentor experience to be as successful as possible, while not hampering the abilities of teams with more advanced programming capabilities. We support Kit of Parts control system components directly in the library. We also strive to keep parity between major features of each language (Java, C++, and NI's LabVIEW), so that teams aren't at a disadvantage for choosing a specific programming language. WPILib is an open source project, licensed under the BSD 3-clause license. You can find a copy of the license [here](LICENSE.md).
+The WPILib Mission is to enable FIRST Robotics teams to focus on writing game-specific software rather than focusing on hardware details - "raise the floor, don't lower the ceiling". We work to enable teams with limited programming knowledge and/or mentor experience to be as successful as possible, while not hampering the abilities of teams with more advanced programming capabilities. We support Kit of Parts control system components directly in the library. We also strive to keep parity between major features of each language (Java, C++, Python, and NI's LabVIEW), so that teams aren't at a disadvantage for choosing a specific programming language. WPILib is an open source project, licensed under the BSD 3-clause license. You can find a copy of the license [here](LICENSE.md).
 
 # Quick Start
 
@@ -40,15 +42,15 @@ Using Gradle makes building WPILib very straightforward. It only has a few depen
 
 ## Requirements
 
-- [JDK 11](https://adoptopenjdk.net/)
+- [JDK 17](https://adoptium.net/temurin/releases/?version=17)
     - Note that the JRE is insufficient; the full JDK is required
-    - On Ubuntu, run `sudo apt install openjdk-11-jdk`
-    - On Windows, install the JDK 11 .msi from the link above
-    - On macOS, install the JDK 11 .pkg from the link above
+    - On Ubuntu, run `sudo apt install openjdk-17-jdk`
+    - On Windows, install the JDK 17 .msi from the link above
+    - On macOS, install the JDK 17 .pkg from the link above
 - C++ compiler
     - On Linux, install GCC 11 or greater
     - On Windows, install [Visual Studio Community 2022](https://visualstudio.microsoft.com/vs/community/) and select the C++ programming language during installation (Gradle can't use the build tools for Visual Studio)
-    - On macOS, install the Xcode command-line build tools via `xcode-select --install`
+    - On macOS, install the Xcode command-line build tools via `xcode-select --install`. Xcode 13 or later is required.
 - ARM compiler toolchain
     - Run `./gradlew installRoboRioToolchain` after cloning this repository
     - If the WPILib installer was used, this toolchain is already installed
@@ -57,11 +59,13 @@ Using Gradle makes building WPILib very straightforward. It only has a few depen
 
 On macOS ARM, run `softwareupdate --install-rosetta`. This is necessary to be able to use the macOS x86 roboRIO toolchain on ARM.
 
+On linux, run `sudo apt install gfortran`. This is necessary to be able to build WPIcal on linux platforms.
+
 ## Setup
 
-Clone the WPILib repository and follow the instructions above for installing any required tooling.
+Clone the WPILib repository and follow the instructions above for installing any required tooling. The build process uses versioning information from git. Downloading the source is not sufficient to run the build.
 
-See the [styleguide README](https://github.com/wpilibsuite/styleguide/blob/main/README.md) for wpiformat setup instructions. We use clang-format 14.
+See the [styleguide README](https://github.com/wpilibsuite/styleguide/blob/main/README.md) for wpiformat setup instructions.
 
 ## Building
 
@@ -87,9 +91,24 @@ If opening from a fresh clone, generated java dependencies will not exist. Most 
 
 `./gradlew build` builds _everything_, which includes debug and release builds for desktop and all installed cross compilers. Many developers don't need or want to build all of this. Therefore, common tasks have shortcuts to only build necessary components for common development and testing tasks.
 
-`./gradlew testDesktopCpp` and `./gradlew testDesktopJava` will build and run the tests for `wpilibc` and `wpilibj` respectively. They will only build the minimum components required to run the tests.
+`./gradlew testDesktopCpp` and `./gradlew testDesktopJava` will build and run the tests for `wpilibc` and `wpilibj` respectively. They will only build the minimum components required to run the tests. `./gradlew testDesktop` will run both `testDesktopJava` and `testDesktopCpp`.
 
-`testDesktopCpp` and `testDesktopJava` tasks also exist for the projects `wpiutil`, `ntcore`, `cscore`, `hal` `wpilibNewCommands` and `cameraserver`. These can be ran with `./gradlew :projectName:task`.
+`testDesktopCpp`, `testDesktopJava`, and `testDesktop` tasks also exist for the following projects:
+
+- `apriltag`
+- `cameraserver`
+- `cscore`
+- `hal`
+- `ntcore`
+- `wpilibNewCommands`
+- `wpimath`
+- `wpinet`
+- `wpiunits`
+- `wpiutil`
+- `romiVendordep`
+- `xrpVendordep`
+
+These can be ran with `./gradlew :projectName:task`.
 
 `./gradlew buildDesktopCpp` and `./gradlew buildDesktopJava` will compile `wpilibcExamples` and `wpilibjExamples` respectively. The results can't be ran, but they can compile.
 
@@ -117,9 +136,12 @@ If you have installed the FRC Toolchain to a directory other than the default, o
 
 Once a PR has been submitted, formatting can be run in CI by commenting `/format` on the PR. A new commit will be pushed with the formatting changes.
 
+> [!NOTE]
+> The `/format` action has been temporarily disabled. The individual formatting commands can be run locally as shown below. Alternately, the Lint and Format action for a PR will upload a patch file that can be downloaded and applied manually.
+
 #### wpiformat
 
-wpiformat can be executed anywhere in the repository via `py -3 -m wpiformat -clang 14` on Windows or `python3 -m wpiformat -clang 14` on other platforms.
+wpiformat can be executed anywhere in the repository via `py -3 -m wpiformat` on Windows or `python3 -m wpiformat` on other platforms.
 
 #### Java Code Quality Tools
 
@@ -127,9 +149,27 @@ The Java code quality tools Checkstyle, PMD, and Spotless can be run via `./grad
 
 If you only want to run the Java autoformatter, run `./gradlew spotlessApply`.
 
+### Generated files
+
+Several files within WPILib are generated using Jinja. If a PR is opened that modifies these templates then the files can be generated through CI by commenting `/pregen` on the PR. A new commit will be pushed with the regenerated files. See [GeneratedFiles.md](GeneratedFiles.md) for more information.
+
 ### CMake
 
-CMake is also supported for building. See [README-CMAKE.md](README-CMAKE.md).
+CMake is also supported for building. See [README-CMake.md](README-CMake.md).
+
+### Bazel
+
+Bazel is also supported for building. See [README-Bazel.md](README-Bazel.md).
+
+## Running examples in simulation
+
+Examples can be run in simulation with the following command:
+
+```bash
+./gradlew wpilibcExamples:runExample
+./gradlew wpilibjExamples:runExample
+```
+where `Example` is the example's folder name.
 
 ## Publishing
 
@@ -153,7 +193,3 @@ The hal directory contains more C++ code meant to run on the roboRIO. HAL is an 
 The upstream_utils directory contains scripts for updating copies of thirdparty code in the repository.
 
 The [styleguide repository](https://github.com/wpilibsuite/styleguide) contains our style guides for C++ and Java code. Anything submitted to the WPILib project needs to follow the code style guides outlined in there. For details about the style, please see the contributors document [here](CONTRIBUTING.md#coding-guidelines).
-
-# Contributing to WPILib
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).

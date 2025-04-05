@@ -30,7 +30,7 @@ namespace wpi::uv {
  * template parameters.  If data parameters are used, the async callback will
  * be called once for every call to Send().  If no data parameters are used,
  * the async callback may or may not be called for every call to Send() (e.g.
- * the calls may be coaleasced).
+ * the calls may be coalesced).
  */
 template <typename... T>
 class Async final : public HandleImpl<Async<T...>, uv_async_t> {
@@ -62,6 +62,9 @@ class Async final : public HandleImpl<Async<T...>, uv_async_t> {
    * @param loop Loop object where this handle runs.
    */
   static std::shared_ptr<Async> Create(const std::shared_ptr<Loop>& loop) {
+    if (loop->IsClosing()) {
+      return nullptr;
+    }
     auto h = std::make_shared<Async>(loop, private_init{});
     int err =
         uv_async_init(loop->GetRaw(), h->GetRaw(), [](uv_async_t* handle) {
@@ -89,6 +92,9 @@ class Async final : public HandleImpl<Async<T...>, uv_async_t> {
   template <typename... U>
   void Send(U&&... u) {
     auto loop = m_loop.lock();
+    if (loop->IsClosing()) {
+      return;
+    }
     if (loop && loop->GetThreadId() == std::this_thread::get_id()) {
       // called from within the loop, just call the function directly
       wakeup(std::forward<U>(u)...);
@@ -126,7 +132,7 @@ class Async final : public HandleImpl<Async<T...>, uv_async_t> {
 
 /**
  * Async specialization for no data parameters.  The async callback may or may
- * not be called for every call to Send() (e.g. the calls may be coaleasced).
+ * not be called for every call to Send() (e.g. the calls may be coalesced).
  */
 template <>
 class Async<> final : public HandleImpl<Async<>, uv_async_t> {
@@ -161,6 +167,9 @@ class Async<> final : public HandleImpl<Async<>, uv_async_t> {
    */
   void Send() {
     if (auto loop = m_loop.lock()) {
+      if (loop->IsClosing()) {
+        return;
+      }
       if (loop->GetThreadId() == std::this_thread::get_id()) {
         // called from within the loop, just call the function directly
         wakeup();

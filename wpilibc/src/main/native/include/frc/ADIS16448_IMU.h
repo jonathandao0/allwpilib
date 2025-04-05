@@ -16,11 +16,9 @@
 #include <stdint.h>
 
 #include <atomic>
-#include <memory>
 #include <thread>
 
 #include <hal/SimDevice.h>
-#include <networktables/NTSendable.h>
 #include <units/acceleration.h>
 #include <units/angle.h>
 #include <units/angular_velocity.h>
@@ -29,11 +27,11 @@
 #include <units/temperature.h>
 #include <wpi/condition_variable.h>
 #include <wpi/mutex.h>
+#include <wpi/sendable/Sendable.h>
 #include <wpi/sendable/SendableHelper.h>
 
 #include "frc/DigitalInput.h"
 #include "frc/DigitalOutput.h"
-#include "frc/DigitalSource.h"
 #include "frc/SPI.h"
 
 namespace frc {
@@ -53,26 +51,50 @@ namespace frc {
  * the RoboRIO MXP port.
  */
 
-class ADIS16448_IMU : public nt::NTSendable,
+class ADIS16448_IMU : public wpi::Sendable,
                       public wpi::SendableHelper<ADIS16448_IMU> {
  public:
-  /* ADIS16448 Calibration Time Enum Class */
+  /**
+   * ADIS16448 calibration times.
+   */
   enum class CalibrationTime {
+    /// 32 ms calibration time.
     _32ms = 0,
+    /// 64 ms calibration time.
     _64ms = 1,
+    /// 128 ms calibration time.
     _128ms = 2,
+    /// 256 ms calibration time.
     _256ms = 3,
+    /// 512 ms calibration time.
     _512ms = 4,
+    /// 1 s calibration time.
     _1s = 5,
+    /// 2 s calibration time.
     _2s = 6,
+    /// 4 s calibration time.
     _4s = 7,
+    /// 8 s calibration time.
     _8s = 8,
+    /// 16 s calibration time.
     _16s = 9,
+    /// 32 s calibration time.
     _32s = 10,
+    /// 64 s calibration time.
     _64s = 11
   };
 
-  enum IMUAxis { kX, kY, kZ };
+  /**
+   * IMU axes.
+   */
+  enum IMUAxis {
+    /// The IMU's X axis.
+    kX,
+    /// The IMU's Y axis.
+    kY,
+    /// The IMU's Z axis.
+    kZ
+  };
 
   /**
    * IMU constructor on onboard MXP CS0, Z-up orientation, and complementary
@@ -93,8 +115,8 @@ class ADIS16448_IMU : public nt::NTSendable,
 
   ~ADIS16448_IMU() override;
 
-  ADIS16448_IMU(ADIS16448_IMU&&) = default;
-  ADIS16448_IMU& operator=(ADIS16448_IMU&&) = default;
+  ADIS16448_IMU(ADIS16448_IMU&&);
+  ADIS16448_IMU& operator=(ADIS16448_IMU&&);
 
   /**
    * Initialize the IMU.
@@ -183,31 +205,71 @@ class ADIS16448_IMU : public nt::NTSendable,
    */
   units::meters_per_second_squared_t GetAccelZ() const;
 
+  /**
+   * Returns the complementary angle around the X axis computed from
+   * accelerometer and gyro rate measurements.
+   */
   units::degree_t GetXComplementaryAngle() const;
 
+  /**
+   * Returns the complementary angle around the Y axis computed from
+   * accelerometer and gyro rate measurements.
+   */
   units::degree_t GetYComplementaryAngle() const;
 
+  /**
+   * Returns the X-axis filtered acceleration angle.
+   */
   units::degree_t GetXFilteredAccelAngle() const;
 
+  /**
+   * Returns the Y-axis filtered acceleration angle.
+   */
   units::degree_t GetYFilteredAccelAngle() const;
 
+  /**
+   * Returns the magnetic field strength in the X axis.
+   */
   units::tesla_t GetMagneticFieldX() const;
 
+  /**
+   * Returns the magnetic field strength in the Y axis.
+   */
   units::tesla_t GetMagneticFieldY() const;
 
+  /**
+   * Returns the magnetic field strength in the Z axis.
+   */
   units::tesla_t GetMagneticFieldZ() const;
 
+  /**
+   * Returns the barometric pressure.
+   */
   units::pounds_per_square_inch_t GetBarometricPressure() const;
 
+  /**
+   * Returns the temperature.
+   */
   units::celsius_t GetTemperature() const;
 
   IMUAxis GetYawAxis() const;
 
   int SetYawAxis(IMUAxis yaw_axis);
 
+  /**
+   * Checks the connection status of the IMU.
+   *
+   * @return True if the IMU is connected, false otherwise.
+   */
   bool IsConnected() const;
 
-  int ConfigDecRate(uint16_t DecimationRate);
+  /**
+   * Configures the decimation rate of the IMU.
+   *
+   * @param decimationRate The new decimation value.
+   * @return 0 if success, 1 if no change, 2 if error.
+   */
+  int ConfigDecRate(uint16_t decimationRate);
 
   /**
    * Get the SPI port number.
@@ -216,10 +278,10 @@ class ADIS16448_IMU : public nt::NTSendable,
    */
   int GetPort() const;
 
-  void InitSendable(nt::NTSendableBuilder& builder) override;
+  void InitSendable(wpi::SendableBuilder& builder) override;
 
  private:
-  /** @brief ADIS16448 Register Map Declaration */
+  // ADIS16448 Register Map Declaration
   static constexpr uint8_t FLASH_CNT = 0x00;  // Flash memory write count
   static constexpr uint8_t XGYRO_OUT = 0x04;  // X-axis gyroscope output
   static constexpr uint8_t YGYRO_OUT = 0x06;  // Y-axis gyroscope output
@@ -276,9 +338,9 @@ class ADIS16448_IMU : public nt::NTSendable,
   static constexpr uint8_t SERIAL_NUM = 0x58;  // Lot-specific serial number
 
   /** @brief ADIS16448 Static Constants */
-  static constexpr double rad_to_deg = 57.2957795;
-  static constexpr double deg_to_rad = 0.0174532;
-  static constexpr double grav = 9.81;
+  static constexpr double kRadToDeg = 57.2957795;
+  static constexpr double kDegToRad = 0.0174532;
+  static constexpr double kGrav = 9.81;
 
   /** @brief struct to store offset data */
   struct OffsetData {
@@ -288,8 +350,8 @@ class ADIS16448_IMU : public nt::NTSendable,
   };
 
   /** @brief Internal Resources **/
-  DigitalInput* m_reset_in;
-  DigitalOutput* m_status_led;
+  DigitalInput* m_reset_in = nullptr;
+  DigitalOutput* m_status_led = nullptr;
 
   bool SwitchToStandardSPI();
 
@@ -320,8 +382,8 @@ class ADIS16448_IMU : public nt::NTSendable,
   double m_temp = 0.0;
 
   // Complementary filter variables
-  double m_tau = 0.5;
   double m_dt, m_alpha = 0.0;
+  static constexpr double kTau = 0.5;
   double m_compAngleX, m_compAngleY, m_accelAngleX, m_accelAngleY = 0.0;
 
   // vector for storing most recent imu values
@@ -346,17 +408,15 @@ class ADIS16448_IMU : public nt::NTSendable,
   // Complementary filter functions
   double FormatFastConverge(double compAngle, double accAngle);
 
-  double FormatRange0to2PI(double compAngle);
-
   double FormatAccelRange(double accelAngle, double accelZ);
 
   double CompFilterProcess(double compAngle, double accelAngle, double omega);
 
   // State and resource variables
-  volatile bool m_thread_active = false;
-  volatile bool m_first_run = true;
-  volatile bool m_thread_idle = false;
-  volatile bool m_start_up_mode = true;
+  std::atomic<bool> m_thread_active = false;
+  std::atomic<bool> m_first_run = true;
+  std::atomic<bool> m_thread_idle = false;
+  std::atomic<bool> m_start_up_mode = true;
 
   bool m_auto_configured = false;
   SPI::Port m_spi_port;
@@ -401,7 +461,7 @@ class ADIS16448_IMU : public nt::NTSendable,
   mutable NonMovableMutexWrapper m_mutex;
 
   // CRC-16 Look-Up Table
-  static constexpr uint16_t adiscrc[256] = {
+  static constexpr uint16_t m_adiscrc[256] = {
       0x0000, 0x17CE, 0x0FDF, 0x1811, 0x1FBE, 0x0870, 0x1061, 0x07AF, 0x1F3F,
       0x08F1, 0x10E0, 0x072E, 0x0081, 0x174F, 0x0F5E, 0x1890, 0x1E3D, 0x09F3,
       0x11E2, 0x062C, 0x0183, 0x164D, 0x0E5C, 0x1992, 0x0102, 0x16CC, 0x0EDD,

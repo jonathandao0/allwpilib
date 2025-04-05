@@ -8,12 +8,10 @@
 
 #include <array>
 #include <atomic>
-#include <chrono>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
-#include <thread>
-#include <type_traits>
 
 #include <fmt/format.h>
 #include <hal/DriverStation.h>
@@ -28,11 +26,11 @@
 #include <wpi/DataLog.h>
 #include <wpi/EventVector.h>
 #include <wpi/condition_variable.h>
+#include <wpi/json.h>
 #include <wpi/mutex.h>
 #include <wpi/timestamp.h>
 
 #include "frc/Errors.h"
-#include "frc/MotorSafety.h"
 #include "frc/Timer.h"
 
 using namespace frc;
@@ -45,8 +43,11 @@ class MatchDataSenderEntry {
  public:
   MatchDataSenderEntry(const std::shared_ptr<nt::NetworkTable>& table,
                        std::string_view key,
-                       typename Topic::ParamType initialVal)
-      : publisher{Topic{table->GetTopic(key)}.Publish()}, prevVal{initialVal} {
+                       typename Topic::ParamType initialVal,
+                       wpi::json topicProperties = wpi::json::object())
+      : publisher{Topic{table->GetTopic(key)}.PublishEx(Topic::kTypeString,
+                                                        topicProperties)},
+        prevVal{initialVal} {
     publisher.Set(initialVal);
   }
 
@@ -62,10 +63,16 @@ class MatchDataSenderEntry {
   typename Topic::ValueType prevVal;
 };
 
+static constexpr std::string_view kSmartDashboardType = "FMSInfo";
+
 struct MatchDataSender {
   std::shared_ptr<nt::NetworkTable> table =
       nt::NetworkTableInstance::GetDefault().GetTable("FMSInfo");
-  MatchDataSenderEntry<nt::StringTopic> typeMetaData{table, ".type", "FMSInfo"};
+  MatchDataSenderEntry<nt::StringTopic> typeMetaData{
+      table,
+      ".type",
+      kSmartDashboardType,
+      {{"SmartDashboard", kSmartDashboardType}}};
   MatchDataSenderEntry<nt::StringTopic> gameSpecificMessage{
       table, "GameSpecificMessage", ""};
   MatchDataSenderEntry<nt::StringTopic> eventName{table, "EventName", ""};
@@ -484,6 +491,12 @@ bool DriverStation::IsTest() {
   return controlWord.test;
 }
 
+bool DriverStation::IsTestEnabled() {
+  HAL_ControlWord controlWord;
+  HAL_GetControlWord(&controlWord);
+  return controlWord.test && controlWord.enabled;
+}
+
 bool DriverStation::IsDSAttached() {
   HAL_ControlWord controlWord;
   HAL_GetControlWord(&controlWord);
@@ -527,7 +540,7 @@ int DriverStation::GetReplayNumber() {
   return info.replayNumber;
 }
 
-DriverStation::Alliance DriverStation::GetAlliance() {
+std::optional<DriverStation::Alliance> DriverStation::GetAlliance() {
   int32_t status = 0;
   auto allianceStationID = HAL_GetAllianceStation(&status);
   switch (allianceStationID) {
@@ -540,11 +553,11 @@ DriverStation::Alliance DriverStation::GetAlliance() {
     case HAL_AllianceStationID_kBlue3:
       return kBlue;
     default:
-      return kInvalid;
+      return {};
   }
 }
 
-int DriverStation::GetLocation() {
+std::optional<int> DriverStation::GetLocation() {
   int32_t status = 0;
   auto allianceStationID = HAL_GetAllianceStation(&status);
   switch (allianceStationID) {
@@ -558,13 +571,27 @@ int DriverStation::GetLocation() {
     case HAL_AllianceStationID_kBlue3:
       return 3;
     default:
-      return 0;
+      return {};
   }
 }
 
-double DriverStation::GetMatchTime() {
+bool DriverStation::WaitForDsConnection(units::second_t timeout) {
+  wpi::Event event{true, false};
+  HAL_ProvideNewDataEventHandle(event.GetHandle());
+  bool result = false;
+  if (timeout == 0_s) {
+    result = wpi::WaitForObject(event.GetHandle());
+  } else {
+    result = wpi::WaitForObject(event.GetHandle(), timeout.value(), nullptr);
+  }
+
+  HAL_RemoveNewDataEventHandle(event.GetHandle());
+  return result;
+}
+
+units::second_t DriverStation::GetMatchTime() {
   int32_t status = 0;
-  return HAL_GetMatchTime(&status);
+  return units::second_t{HAL_GetMatchTime(&status)};
 }
 
 double DriverStation::GetBatteryVoltage() {
@@ -651,7 +678,7 @@ void DriverStation::StartDataLog(wpi::log::DataLog& log, bool logJoysticks) {
 void ReportJoystickUnpluggedErrorV(fmt::string_view format,
                                    fmt::format_args args) {
   auto& inst = GetInstance();
-  auto currentTime = Timer::GetFPGATimestamp();
+  auto currentTime = Timer::GetTimestamp();
   if (currentTime > inst.nextMessageTime) {
     ReportErrorV(err::Error, "", 0, "", format, args);
     inst.nextMessageTime = currentTime + kJoystickUnpluggedMessageInterval;
@@ -662,7 +689,7 @@ void ReportJoystickUnpluggedWarningV(fmt::string_view format,
                                      fmt::format_args args) {
   auto& inst = GetInstance();
   if (DriverStation::IsFMSAttached() || !inst.silenceJoystickWarning) {
-    auto currentTime = Timer::GetFPGATimestamp();
+    auto currentTime = Timer::GetTimestamp();
     if (currentTime > inst.nextMessageTime) {
       ReportErrorV(warn::Warning, "", 0, "", format, args);
       inst.nextMessageTime = currentTime + kJoystickUnpluggedMessageInterval;

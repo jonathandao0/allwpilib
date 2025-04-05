@@ -9,17 +9,27 @@
 
 using namespace frc::sim;
 
-DutyCycleEncoderSim::DutyCycleEncoderSim(const frc::DutyCycleEncoder& encoder) {
-  frc::sim::SimDeviceSim deviceSim{"DutyCycle:DutyCycleEncoder",
-                                   encoder.GetSourceChannel()};
-  m_simPosition = deviceSim.GetDouble("position");
-  m_simDistancePerRotation = deviceSim.GetDouble("distance_per_rot");
+DutyCycleEncoderSim::DutyCycleEncoderSim(const frc::DutyCycleEncoder& encoder)
+    : DutyCycleEncoderSim{encoder.GetSourceChannel()} {}
+
+DutyCycleEncoderSim::DutyCycleEncoderSim(int channel) {
+  frc::sim::SimDeviceSim deviceSim{"DutyCycle:DutyCycleEncoder", channel};
+  m_simPosition = deviceSim.GetDouble("Position");
+  m_simIsConnected = deviceSim.GetBoolean("Connected");
 }
 
-void DutyCycleEncoderSim::Set(units::turn_t turns) {
-  m_simPosition.Set(turns.value());
+double DutyCycleEncoderSim::Get() {
+  return m_simPosition.Get();
 }
 
-void DutyCycleEncoderSim::SetDistance(double distance) {
-  m_simPosition.Set(distance / m_simDistancePerRotation.Get());
+void DutyCycleEncoderSim::Set(double value) {
+  m_simPosition.Set(value);
+}
+
+bool DutyCycleEncoderSim::IsConnected() {
+  return m_simIsConnected.Get();
+}
+
+void DutyCycleEncoderSim::SetConnected(bool isConnected) {
+  m_simIsConnected.Set(isConnected);
 }

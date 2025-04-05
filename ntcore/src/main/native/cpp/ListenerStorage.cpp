@@ -5,25 +5,14 @@
 #include "ListenerStorage.h"
 
 #include <algorithm>
+#include <utility>
+#include <vector>
 
-#include <wpi/DenseMap.h>
 #include <wpi/SmallVector.h>
 
 #include "ntcore_c.h"
 
 using namespace nt;
-
-class ListenerStorage::Thread final : public wpi::SafeThreadEvent {
- public:
-  explicit Thread(NT_ListenerPoller poller) : m_poller{poller} {}
-
-  void Main() final;
-
-  NT_ListenerPoller m_poller;
-  wpi::DenseMap<NT_Listener, ListenerCallback> m_callbacks;
-  wpi::Event m_waitQueueWakeup;
-  wpi::Event m_waitQueueWaiter;
-};
 
 void ListenerStorage::Thread::Main() {
   while (m_active) {
@@ -54,10 +43,6 @@ void ListenerStorage::Thread::Main() {
     }
   }
 }
-
-ListenerStorage::ListenerStorage(int inst) : m_inst{inst} {}
-
-ListenerStorage::~ListenerStorage() = default;
 
 void ListenerStorage::Activate(NT_Listener listenerHandle, unsigned int mask,
                                FinishEventFunc finishEvent) {
@@ -369,6 +354,7 @@ void ListenerStorage::Reset() {
   m_topicListeners.clear();
   m_valueListeners.clear();
   m_logListeners.clear();
+  m_timeSyncListeners.clear();
   if (m_thread) {
     m_thread.Stop();
   }
@@ -398,6 +384,9 @@ ListenerStorage::DoRemoveListeners(std::span<const NT_Listener> handles) {
       if ((listener->eventMask & NT_EVENT_LOGMESSAGE) != 0 ||
           (listener->eventMask & 0x1ff0000) != 0) {
         m_logListeners.Remove(listener.get());
+      }
+      if ((listener->eventMask & NT_EVENT_TIMESYNC) != 0) {
+        m_timeSyncListeners.Remove(listener.get());
       }
     }
   }

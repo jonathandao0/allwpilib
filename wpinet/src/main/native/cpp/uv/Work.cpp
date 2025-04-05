@@ -4,6 +4,10 @@
 
 #include "wpinet/uv/Work.h"
 
+#include <functional>
+#include <memory>
+#include <utility>
+
 #include "wpinet/uv/Loop.h"
 
 namespace wpi::uv {
@@ -13,6 +17,9 @@ WorkReq::WorkReq() {
 }
 
 void QueueWork(Loop& loop, const std::shared_ptr<WorkReq>& req) {
+  if (loop.IsClosing()) {
+    return;
+  }
   int err = uv_queue_work(
       loop.GetRaw(), req->GetRaw(),
       [](uv_work_t* req) {
@@ -37,6 +44,9 @@ void QueueWork(Loop& loop, const std::shared_ptr<WorkReq>& req) {
 
 void QueueWork(Loop& loop, std::function<void()> work,
                std::function<void()> afterWork) {
+  if (loop.IsClosing()) {
+    return;
+  }
   auto req = std::make_shared<WorkReq>();
   if (work) {
     req->work.connect(std::move(work));

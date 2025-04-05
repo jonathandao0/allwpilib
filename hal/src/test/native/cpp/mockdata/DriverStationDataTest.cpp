@@ -3,8 +3,11 @@
 // the WPILib BSD license file in the root directory of this project.
 
 #include <cstring>
+#include <string>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+#include <wpi/StringExtras.h>
+
 #include "hal/HAL.h"
 #include "hal/simulation/DriverStationData.h"
 
@@ -116,18 +119,19 @@ TEST(DriverStationTest, Joystick) {
 }
 
 TEST(DriverStationTest, EventInfo) {
-  std::string eventName = "UnitTest";
-  std::string gameData = "Insert game specific info here :D";
+  constexpr std::string_view eventName = "UnitTest";
+  constexpr std::string_view gameData = "Insert game specific info here :D";
   HAL_MatchInfo info;
-  std::snprintf(info.eventName, sizeof(info.eventName), "%s",
-                eventName.c_str());
-  std::snprintf(reinterpret_cast<char*>(info.gameSpecificMessage),
-                sizeof(info.gameSpecificMessage), "%s", gameData.c_str());
+  wpi::format_to_n_c_str(info.eventName, sizeof(info.eventName), eventName);
+  wpi::format_to_n_c_str(reinterpret_cast<char*>(info.gameSpecificMessage),
+                         sizeof(info.gameSpecificMessage), gameData);
   info.gameSpecificMessageSize = gameData.size();
   info.matchNumber = 5;
   info.matchType = HAL_MatchType::HAL_kMatchType_qualification;
   info.replayNumber = 42;
   HALSIM_SetMatchInfo(&info);
+
+  HAL_RefreshDSData();
 
   HAL_MatchInfo dataBack;
   HAL_GetMatchInfo(&dataBack);
@@ -135,7 +139,7 @@ TEST(DriverStationTest, EventInfo) {
   std::string gsm{reinterpret_cast<char*>(dataBack.gameSpecificMessage),
                   dataBack.gameSpecificMessageSize};
 
-  EXPECT_STREQ(eventName.c_str(), dataBack.eventName);
+  EXPECT_EQ(eventName, dataBack.eventName);
   EXPECT_EQ(gameData, gsm);
   EXPECT_EQ(5, dataBack.matchNumber);
   EXPECT_EQ(HAL_MatchType::HAL_kMatchType_qualification, dataBack.matchType);

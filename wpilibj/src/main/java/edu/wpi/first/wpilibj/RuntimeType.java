@@ -6,11 +6,16 @@ package edu.wpi.first.wpilibj;
 
 import edu.wpi.first.hal.HALUtil;
 
+/** Runtime type. */
 public enum RuntimeType {
+  /** roboRIO 1.0. */
   kRoboRIO(HALUtil.RUNTIME_ROBORIO),
+  /** roboRIO 2.0. */
   kRoboRIO2(HALUtil.RUNTIME_ROBORIO2),
+  /** Simulation runtime. */
   kSimulation(HALUtil.RUNTIME_SIMULATION);
 
+  /** RuntimeType value. */
   public final int value;
 
   RuntimeType(int value) {
@@ -24,11 +29,10 @@ public enum RuntimeType {
    * @return Matching runtime type
    */
   public static RuntimeType getValue(int type) {
-    if (type == HALUtil.RUNTIME_ROBORIO) {
-      return RuntimeType.kRoboRIO;
-    } else if (type == HALUtil.RUNTIME_ROBORIO2) {
-      return RuntimeType.kRoboRIO2;
-    }
-    return RuntimeType.kSimulation;
+    return switch (type) {
+      case HALUtil.RUNTIME_ROBORIO -> RuntimeType.kRoboRIO;
+      case HALUtil.RUNTIME_ROBORIO2 -> RuntimeType.kRoboRIO2;
+      default -> RuntimeType.kSimulation;
+    };
   }
 }

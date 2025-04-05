@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_THREADING_HPP_INCLUDED
 #define WPI_MEMORY_THREADING_HPP_INCLUDED
@@ -23,7 +22,7 @@ namespace wpi
     {
         /// A dummy \c Mutex class that does not lock anything.
         /// It is a valid \c Mutex and can be used to disable locking anywhere a \c Mutex is requested.
-        /// \ingroup core
+        /// \ingroup memory_core
         struct no_mutex
         {
             void lock() noexcept {}
@@ -36,11 +35,11 @@ namespace wpi
             void unlock() noexcept {}
         };
 
-        /// Specifies whether or not a \concept{concept_rawallocator,RawAllocator} is thread safe as-is.
+        /// Specifies whether or not a RawAllocator is thread safe as-is.
         /// This allows to use \ref no_mutex as an optimization.
         /// Note that stateless allocators are implictly thread-safe.
         /// Specialize it only for your own stateful allocators.
-        /// \ingroup core
+        /// \ingroup memory_core
         template <class RawAllocator>
         struct is_thread_safe_allocator
         : std::integral_constant<bool, !allocator_traits<RawAllocator>::is_stateful::value>

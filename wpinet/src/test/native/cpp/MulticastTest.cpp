@@ -12,9 +12,8 @@
 #include <thread>
 #include <utility>
 
+#include <gtest/gtest.h>
 #include <wpi/timestamp.h>
-
-#include "gtest/gtest.h"
 
 TEST(MulticastServiceAnnouncerTest, EmptyText) {
   const std::string_view serviceName = "TestServiceNoText";
@@ -39,7 +38,7 @@ TEST(MulticastServiceAnnouncerTest, SingleText) {
   const std::string_view serviceType = "_wpitxt";
   const int port = std::rand();
   std::array<std::pair<std::string, std::string>, 1> txt = {
-      std::make_pair("hello", "world")};
+      std::pair{"hello", "world"}};
   wpi::MulticastServiceAnnouncer announcer(serviceName, serviceType, port, txt);
   wpi::MulticastServiceResolver resolver(serviceType);
 

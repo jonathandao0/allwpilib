@@ -4,18 +4,26 @@
 
 #pragma once
 
-#include <frc2/command/CommandBase.h>
+#include <frc2/command/Command.h>
 #include <frc2/command/CommandHelper.h>
 #include <units/angle.h>
 #include <units/length.h>
 
 #include "subsystems/Drivetrain.h"
 
-class TurnDegrees : public frc2::CommandHelper<frc2::CommandBase, TurnDegrees> {
+class TurnDegrees : public frc2::CommandHelper<frc2::Command, TurnDegrees> {
  public:
+  /**
+   * Creates a new TurnDegrees. This command will turn your robot for a desired
+   * rotation (in degrees) and rotational speed.
+   *
+   * @param speed The speed which the robot will drive. Negative is in reverse.
+   * @param degrees Degrees to turn. Leverages encoders to compare distance.
+   * @param drive The drive subsystem on which this command will run
+   */
   TurnDegrees(double speed, units::degree_t angle, Drivetrain* drive)
       : m_speed(speed), m_angle(angle), m_drive(drive) {
-    AddRequirements({m_drive});
+    AddRequirements(m_drive);
   }
 
   void Initialize() override;

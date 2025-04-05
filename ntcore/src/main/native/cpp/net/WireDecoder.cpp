@@ -5,6 +5,10 @@
 #include "WireDecoder.h"
 
 #include <algorithm>
+#include <concepts>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <fmt/format.h>
 #include <wpi/Logger.h>
@@ -13,6 +17,7 @@
 #include <wpi/mpack.h>
 
 #include "Message.h"
+#include "MessageHandler.h"
 
 using namespace nt;
 using namespace nt::net;
@@ -104,25 +109,24 @@ static bool ObjGetStringArray(wpi::json::object_t& obj, std::string_view key,
 #endif
 
 template <typename T>
-static void WireDecodeTextImpl(std::string_view in, T& out,
+  requires(std::same_as<T, ClientMessageHandler> ||
+           std::same_as<T, ServerMessageHandler>)
+static bool WireDecodeTextImpl(std::string_view in, T& out,
                                wpi::Logger& logger) {
-  static_assert(std::is_same_v<T, ClientMessageHandler> ||
-                    std::is_same_v<T, ServerMessageHandler>,
-                "T must be ClientMessageHandler or ServerMessageHandler");
-
   wpi::json j;
   try {
     j = wpi::json::parse(in);
   } catch (wpi::json::parse_error& err) {
     WPI_WARNING(logger, "could not decode JSON message: {}", err.what());
-    return;
+    return false;
   }
 
   if (!j.is_array()) {
     WPI_WARNING(logger, "expected JSON array at top level");
-    return;
+    return false;
   }
 
+  bool rv = false;
   int i = -1;
   for (auto&& jmsg : j) {
     ++i;
@@ -150,7 +154,7 @@ static void WireDecodeTextImpl(std::string_view in, T& out,
         goto err;
       }
 
-      if constexpr (std::is_same_v<T, ClientMessageHandler>) {
+      if constexpr (std::same_as<T, ClientMessageHandler>) {
         if (*method == PublishMsg::kMethodStr) {
           // name
           auto name = ObjGetString(*params, "name", &error);
@@ -187,7 +191,8 @@ static void WireDecodeTextImpl(std::string_view in, T& out,
           }
 
           // complete
-          out.ClientPublish(pubuid, *name, *typeStr, *properties);
+          out.ClientPublish(pubuid, *name, *typeStr, *properties, {});
+          rv = true;
         } else if (*method == UnpublishMsg::kMethodStr) {
           // pubuid
           int64_t pubuid;
@@ -197,6 +202,7 @@ static void WireDecodeTextImpl(std::string_view in, T& out,
 
           // complete
           out.ClientUnpublish(pubuid);
+          rv = true;
         } else if (*method == SetPropertiesMsg::kMethodStr) {
           // name
           auto name = ObjGetString(*params, "name", &error);
@@ -289,6 +295,7 @@ static void WireDecodeTextImpl(std::string_view in, T& out,
 
           // complete
           out.ClientSubscribe(subuid, topicNames, options);
+          rv = true;
         } else if (*method == UnsubscribeMsg::kMethodStr) {
           // subuid
           int64_t subuid;
@@ -298,11 +305,12 @@ static void WireDecodeTextImpl(std::string_view in, T& out,
 
           // complete
           out.ClientUnsubscribe(subuid);
+          rv = true;
         } else {
           error = fmt::format("unrecognized method '{}'", *method);
           goto err;
         }
-      } else if constexpr (std::is_same_v<T, ServerMessageHandler>) {
+      } else if constexpr (std::same_as<T, ServerMessageHandler>) {
         if (*method == AnnounceMsg::kMethodStr) {
           // name
           auto name = ObjGetString(*params, "name", &error);
@@ -405,15 +413,17 @@ static void WireDecodeTextImpl(std::string_view in, T& out,
   err:
     WPI_WARNING(logger, "{}: {}", i, error);
   }
+
+  return rv;
 }
 
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
 
-void nt::net::WireDecodeText(std::string_view in, ClientMessageHandler& out,
+bool nt::net::WireDecodeText(std::string_view in, ClientMessageHandler& out,
                              wpi::Logger& logger) {
-  ::WireDecodeTextImpl(in, out, logger);
+  return ::WireDecodeTextImpl(in, out, logger);
 }
 
 void nt::net::WireDecodeText(std::string_view in, ServerMessageHandler& out,
@@ -421,14 +431,14 @@ void nt::net::WireDecodeText(std::string_view in, ServerMessageHandler& out,
   ::WireDecodeTextImpl(in, out, logger);
 }
 
-bool nt::net::WireDecodeBinary(std::span<const uint8_t>* in, int64_t* outId,
+bool nt::net::WireDecodeBinary(std::span<const uint8_t>* in, int* outId,
                                Value* outValue, std::string* error,
                                int64_t localTimeOffset) {
   mpack_reader_t reader;
   mpack_reader_init_data(&reader, reinterpret_cast<const char*>(in->data()),
                          in->size());
   mpack_expect_array_match(&reader, 4);
-  *outId = mpack_expect_i64(&reader);
+  *outId = mpack_expect_int(&reader);
   auto time = mpack_expect_i64(&reader);
   int type = mpack_expect_int(&reader);
   switch (type) {
@@ -561,7 +571,6 @@ bool nt::net::WireDecodeBinary(std::span<const uint8_t>* in, int64_t* outId,
   outValue->SetServerTime(time);
   outValue->SetTime(time == 0 ? 0 : time + localTimeOffset);
   // update input range
-  *in = wpi::drop_front(*in,
-                        in->size() - mpack_reader_remaining(&reader, nullptr));
+  *in = wpi::take_back(*in, mpack_reader_remaining(&reader, nullptr));
   return true;
 }

@@ -12,6 +12,9 @@
 #include "frc/trajectory/Trajectory.h"
 
 namespace frc {
+/**
+ * Trajectory utilities.
+ */
 class WPILIB_DLLEXPORT TrajectoryUtil {
  public:
   TrajectoryUtil() = delete;
@@ -50,5 +53,9 @@ class WPILIB_DLLEXPORT TrajectoryUtil {
    * @return the trajectory represented by the JSON
    */
   static Trajectory DeserializeTrajectory(std::string_view jsonStr);
+
+ private:
+  // Usage reporting for PathWeaver Trajectory instances
+  inline static int pathWeaverTrajectoryInstances = 0;
 };
 }  // namespace frc

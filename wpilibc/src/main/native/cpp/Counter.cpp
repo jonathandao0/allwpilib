@@ -4,7 +4,7 @@
 
 #include "frc/Counter.h"
 
-#include <utility>
+#include <memory>
 
 #include <hal/Counter.h>
 #include <hal/FRCUsageReporting.h>
@@ -84,15 +84,13 @@ Counter::Counter(EncodingType encodingType,
 }
 
 Counter::~Counter() {
-  try {
-    SetUpdateWhenEmpty(true);
-  } catch (const RuntimeError& e) {
-    e.Report();
+  if (m_counter != HAL_kInvalidHandle) {
+    try {
+      SetUpdateWhenEmpty(true);
+    } catch (const RuntimeError& e) {
+      e.Report();
+    }
   }
-
-  int32_t status = 0;
-  HAL_FreeCounter(m_counter, &status);
-  FRC_ReportError(status, "Counter destructor");
 }
 
 void Counter::SetUpSource(int channel) {
@@ -260,6 +258,18 @@ int Counter::GetFPGAIndex() const {
   return m_index;
 }
 
+void Counter::SetDistancePerPulse(double distancePerPulse) {
+  m_distancePerPulse = distancePerPulse;
+}
+
+double Counter::GetDistance() const {
+  return Get() * m_distancePerPulse;
+}
+
+double Counter::GetRate() const {
+  return m_distancePerPulse / GetPeriod().value();
+}
+
 int Counter::Get() const {
   int32_t status = 0;
   int value = HAL_GetCounter(m_counter, &status);
@@ -308,6 +318,5 @@ bool Counter::GetDirection() const {
 
 void Counter::InitSendable(wpi::SendableBuilder& builder) {
   builder.SetSmartDashboardType("Counter");
-  builder.AddDoubleProperty(
-      "Value", [=, this] { return Get(); }, nullptr);
+  builder.AddDoubleProperty("Value", [=, this] { return Get(); }, nullptr);
 }

@@ -10,11 +10,59 @@ import edu.wpi.first.hal.HAL;
 import edu.wpi.first.hal.PWMJNI;
 
 /**
- * A class for driving addressable LEDs, such as WS2812s and NeoPixels.
+ * A class for driving addressable LEDs, such as WS2812B, WS2815, and NeoPixels.
  *
- * <p>Only 1 LED driver is currently supported by the roboRIO.
+ * <p>By default, the timing supports WS2812B and WS2815 LEDs, but is configurable using {@link
+ * #setBitTiming(int, int, int, int)}
+ *
+ * <p>Some LEDs use a different color order than the default GRB. The color order is configurable
+ * using {@link #setColorOrder(ColorOrder)}.
+ *
+ * <p>Only 1 LED driver is currently supported by the roboRIO. However, multiple LED strips can be
+ * connected in series and controlled from the single driver.
  */
 public class AddressableLED implements AutoCloseable {
+  /** Order that color data is sent over the wire. */
+  public enum ColorOrder {
+    /** RGB order. */
+    kRGB(AddressableLEDJNI.COLOR_ORDER_RGB),
+    /** RBG order. */
+    kRBG(AddressableLEDJNI.COLOR_ORDER_RBG),
+    /** BGR order. */
+    kBGR(AddressableLEDJNI.COLOR_ORDER_BGR),
+    /** BRG order. */
+    kBRG(AddressableLEDJNI.COLOR_ORDER_BRG),
+    /** GBR order. */
+    kGBR(AddressableLEDJNI.COLOR_ORDER_GBR),
+    /** GRB order. This is the default order. */
+    kGRB(AddressableLEDJNI.COLOR_ORDER_GRB);
+
+    /** The native value for this ColorOrder. */
+    public final int value;
+
+    ColorOrder(int value) {
+      this.value = value;
+    }
+
+    /**
+     * Gets a color order from an int value.
+     *
+     * @param value int value
+     * @return color order
+     */
+    public ColorOrder fromValue(int value) {
+      return switch (value) {
+        case AddressableLEDJNI.COLOR_ORDER_RBG -> kRBG;
+        case AddressableLEDJNI.COLOR_ORDER_BGR -> kBGR;
+        case AddressableLEDJNI.COLOR_ORDER_BRG -> kBRG;
+        case AddressableLEDJNI.COLOR_ORDER_GRB -> kGRB;
+        case AddressableLEDJNI.COLOR_ORDER_GBR -> kGBR;
+        case AddressableLEDJNI.COLOR_ORDER_RGB -> kRGB;
+        default -> kGRB;
+      };
+    }
+  }
+
   private final int m_pwmHandle;
   private final int m_handle;
 
@@ -37,6 +85,17 @@ public class AddressableLED implements AutoCloseable {
     if (m_pwmHandle != 0) {
       PWMJNI.freePWMPort(m_pwmHandle);
     }
+  }
+
+  /**
+   * Sets the color order for this AddressableLED. The default order is GRB.
+   *
+   * <p>This will take effect on the next call to {@link #setData(AddressableLEDBuffer)}.
+   *
+   * @param order the color order
+   */
+  public void setColorOrder(ColorOrder order) {
+    AddressableLEDJNI.setColorOrder(m_handle, order.value);
   }
 
   /**
@@ -67,32 +126,33 @@ public class AddressableLED implements AutoCloseable {
   /**
    * Sets the bit timing.
    *
-   * <p>By default, the driver is set up to drive WS2812s, so nothing needs to be set for those.
+   * <p>By default, the driver is set up to drive WS2812B and WS2815, so nothing needs to be set for
+   * those.
    *
-   * @param lowTime0NanoSeconds low time for 0 bit
-   * @param highTime0NanoSeconds high time for 0 bit
-   * @param lowTime1NanoSeconds low time for 1 bit
-   * @param highTime1NanoSeconds high time for 1 bit
+   * @param highTime0NanoSeconds high time for 0 bit (default 400ns)
+   * @param lowTime0NanoSeconds low time for 0 bit (default 900ns)
+   * @param highTime1NanoSeconds high time for 1 bit (default 900ns)
+   * @param lowTime1NanoSeconds low time for 1 bit (default 600ns)
    */
   public void setBitTiming(
-      int lowTime0NanoSeconds,
       int highTime0NanoSeconds,
-      int lowTime1NanoSeconds,
-      int highTime1NanoSeconds) {
+      int lowTime0NanoSeconds,
+      int highTime1NanoSeconds,
+      int lowTime1NanoSeconds) {
     AddressableLEDJNI.setBitTiming(
         m_handle,
-        lowTime0NanoSeconds,
         highTime0NanoSeconds,
-        lowTime1NanoSeconds,
-        highTime1NanoSeconds);
+        lowTime0NanoSeconds,
+        highTime1NanoSeconds,
+        lowTime1NanoSeconds);
   }
 
   /**
    * Sets the sync time.
    *
-   * <p>The sync time is the time to hold output so LEDs enable. Default set for WS2812.
+   * <p>The sync time is the time to hold output so LEDs enable. Default set for WS2812B and WS2815.
    *
-   * @param syncTimeMicroSeconds the sync time
+   * @param syncTimeMicroSeconds the sync time (default 280us)
    */
   public void setSyncTime(int syncTimeMicroSeconds) {
     AddressableLEDJNI.setSyncTime(m_handle, syncTimeMicroSeconds);

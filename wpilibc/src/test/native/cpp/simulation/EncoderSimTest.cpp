@@ -4,11 +4,12 @@
 
 #include "frc/simulation/EncoderSim.h"  // NOLINT(build/include_order)
 
+#include <gtest/gtest.h>
 #include <hal/HAL.h>
+#include <wpi/deprecated.h>
 
 #include "callback_helpers/TestCallbackHelpers.h"
 #include "frc/Encoder.h"
-#include "gtest/gtest.h"
 
 namespace frc::sim {
 
@@ -113,7 +114,7 @@ TEST(EncoderSimTest, SetMaxPeriod) {
   auto cb = sim.RegisterMaxPeriodCallback(callback.GetCallback(), false);
 
   WPI_IGNORE_DEPRECATED
-  encoder.SetMaxPeriod(units::second_t{123.456});
+  encoder.SetMaxPeriod(123.456_s);
   WPI_UNIGNORE_DEPRECATED
   EXPECT_EQ(123.456, sim.GetMaxPeriod());
 
@@ -198,7 +199,7 @@ TEST(EncoderSimTest, SetDistancePerPulse) {
   DoubleCallback callback;
   auto cb = sim.RegisterDistancePerPulseCallback(callback.GetCallback(), false);
 
-  encoder.SetDistancePerPulse(.03405);
+  sim.SetDistancePerPulse(.03405);
   EXPECT_EQ(.03405, sim.GetDistancePerPulse());
   EXPECT_EQ(.03405, encoder.GetDistancePerPulse());
   EXPECT_TRUE(callback.WasTriggered());

@@ -2,9 +2,9 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
-#include <gtest/gtest.h>
-
 #include <cmath>
+
+#include <gtest/gtest.h>
 
 #include "frc/EigenCore.h"
 #include "frc/controller/LinearQuadraticRegulator.h"
@@ -28,7 +28,7 @@ TEST(LinearQuadraticRegulatorTest, ElevatorGains) {
     // Gear ratio
     constexpr double G = 40.0 / 40.0;
 
-    return frc::LinearSystemId::ElevatorSystem(motors, m, r, G);
+    return frc::LinearSystemId::ElevatorSystem(motors, m, r, G).Slice(0);
   }();
   Matrixd<1, 2> K =
       LinearQuadraticRegulator<2, 1>{plant, {0.02, 0.4}, {12.0}, 5.05_ms}.K();
@@ -50,8 +50,9 @@ TEST(LinearQuadraticRegulatorTest, ArmGains) {
     // Gear ratio
     constexpr double G = 100.0;
 
-    return frc::LinearSystemId::SingleJointedArmSystem(
-        motors, 1.0 / 3.0 * m * r * r, G);
+    return frc::LinearSystemId::SingleJointedArmSystem(motors,
+                                                       1.0 / 3.0 * m * r * r, G)
+        .Slice(0);
   }();
 
   Matrixd<1, 2> K =
@@ -75,7 +76,7 @@ TEST(LinearQuadraticRegulatorTest, FourMotorElevator) {
     // Gear ratio
     constexpr double G = 14.67;
 
-    return frc::LinearSystemId::ElevatorSystem(motors, m, r, G);
+    return frc::LinearSystemId::ElevatorSystem(motors, m, r, G).Slice(0);
   }();
   Matrixd<1, 2> K =
       LinearQuadraticRegulator<2, 1>{plant, {0.1, 0.2}, {12.0}, 20_ms}.K();
@@ -158,10 +159,10 @@ TEST(LinearQuadraticRegulatorTest, MatrixOverloadsWithDoubleIntegrator) {
   EXPECT_NEAR(0.51182128351092726, K(0, 1), 1e-10);
 
   // QRN overload
-  Matrixd<2, 2> Aref{{0, 1}, {0, -Kv / (Ka * 2.0)}};
+  Matrixd<2, 2> Aref{{0, 1}, {0, -Kv / (Ka * 5.0)}};
   Matrixd<1, 2> Kimf = GetImplicitModelFollowingK<2, 1>(A, B, Q, R, Aref, 5_ms);
   EXPECT_NEAR(0.0, Kimf(0, 0), 1e-10);
-  EXPECT_NEAR(-5.367540084534802e-05, Kimf(0, 1), 1e-10);
+  EXPECT_NEAR(-6.9190500116751458e-05, Kimf(0, 1), 1e-10);
 }
 
 TEST(LinearQuadraticRegulatorTest, LatencyCompensate) {
@@ -177,11 +178,11 @@ TEST(LinearQuadraticRegulatorTest, LatencyCompensate) {
     // Gear ratio
     constexpr double G = 14.67;
 
-    return frc::LinearSystemId::ElevatorSystem(motors, m, r, G);
+    return frc::LinearSystemId::ElevatorSystem(motors, m, r, G).Slice(0);
   }();
-  LinearQuadraticRegulator<2, 1> controller{plant, {0.1, 0.2}, {12.0}, 0.02_s};
+  LinearQuadraticRegulator<2, 1> controller{plant, {0.1, 0.2}, {12.0}, 20_ms};
 
-  controller.LatencyCompensate(plant, 0.02_s, 0.01_s);
+  controller.LatencyCompensate(plant, 20_ms, 10_ms);
 
   EXPECT_NEAR(8.97115941, controller.K(0, 0), 1e-3);
   EXPECT_NEAR(0.07904881, controller.K(0, 1), 1e-3);

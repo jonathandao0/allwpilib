@@ -2,6 +2,7 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
+#include <gtest/gtest.h>
 #include <units/math.h>
 #include <units/time.h>
 
@@ -14,15 +15,14 @@
 #include "frc/system/NumericalIntegration.h"
 #include "frc/system/plant/DCMotor.h"
 #include "frc/system/plant/LinearSystemId.h"
-#include "gtest/gtest.h"
 
 #define EXPECT_NEAR_UNITS(val1, val2, eps) \
   EXPECT_LE(units::math::abs(val1 - val2), eps)
 
 TEST(ElevatorSimTest, StateSpaceSim) {
   frc::sim::ElevatorSim sim(frc::DCMotor::Vex775Pro(4), 14.67, 8_kg, 0.75_in,
-                            0_m, 3_m, true, {0.01});
-  frc2::PIDController controller(10, 0.0, 0.0);
+                            0_m, 3_m, true, 0_m, {0.01});
+  frc::PIDController controller(10, 0.0, 0.0);
 
   frc::PWMVictorSPX motor(0);
   frc::Encoder encoder(0, 1);
@@ -44,9 +44,18 @@ TEST(ElevatorSimTest, StateSpaceSim) {
   EXPECT_NEAR(controller.GetSetpoint(), sim.GetPosition().value(), 0.2);
 }
 
+TEST(ElevatorSimTest, InitialState) {
+  constexpr auto startingHeight = 0.5_m;
+  frc::sim::ElevatorSim sim(frc::DCMotor::KrakenX60(2), 20, 8_kg, 0.1_m, 0_m,
+                            1_m, true, startingHeight, {0.01, 0.0});
+
+  EXPECT_DOUBLE_EQ(startingHeight.value(), sim.GetPosition().value());
+  EXPECT_DOUBLE_EQ(0, sim.GetVelocity().value());
+}
+
 TEST(ElevatorSimTest, MinMax) {
   frc::sim::ElevatorSim sim(frc::DCMotor::Vex775Pro(4), 14.67, 8_kg, 0.75_in,
-                            0_m, 1_m, true, {0.01});
+                            0_m, 1_m, true, 0_m, {0.01});
   for (size_t i = 0; i < 100; ++i) {
     sim.SetInput(frc::Vectord<1>{0.0});
     sim.Update(20_ms);
@@ -66,7 +75,7 @@ TEST(ElevatorSimTest, MinMax) {
 
 TEST(ElevatorSimTest, Stability) {
   frc::sim::ElevatorSim sim{
-      frc::DCMotor::Vex775Pro(4), 100, 4_kg, 0.5_in, 0_m, 10_m, true};
+      frc::DCMotor::Vex775Pro(4), 100, 4_kg, 0.5_in, 0_m, 10_m, false, 0_m};
 
   sim.SetState(frc::Vectord<2>{0.0, 0.0});
   sim.SetInput(frc::Vectord<1>{12.0});
@@ -74,8 +83,10 @@ TEST(ElevatorSimTest, Stability) {
     sim.Update(20_ms);
   }
 
-  frc::LinearSystem<2, 1, 1> system = frc::LinearSystemId::ElevatorSystem(
-      frc::DCMotor::Vex775Pro(4), 4_kg, 0.5_in, 100);
+  frc::LinearSystem<2, 1, 1> system =
+      frc::LinearSystemId::ElevatorSystem(frc::DCMotor::Vex775Pro(4), 4_kg,
+                                          0.5_in, 100)
+          .Slice(0);
   EXPECT_NEAR_UNITS(
       units::meter_t{system.CalculateX(frc::Vectord<2>{0.0, 0.0},
                                        frc::Vectord<1>{12.0}, 20_ms * 50)(0)},

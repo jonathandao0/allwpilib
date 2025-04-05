@@ -4,20 +4,36 @@
 
 #include "frc2/command/ProxyCommand.h"
 
+#include <string>
+#include <utility>
+
+#include <fmt/format.h>
+#include <wpi/deprecated.h>
 #include <wpi/sendable/SendableBuilder.h>
 
 using namespace frc2;
 
+WPI_IGNORE_DEPRECATED
 ProxyCommand::ProxyCommand(wpi::unique_function<Command*()> supplier)
     : m_supplier(std::move(supplier)) {}
 
+ProxyCommand::ProxyCommand(wpi::unique_function<CommandPtr()> supplier)
+    : ProxyCommand([supplier = std::move(supplier),
+                    holder = std::optional<CommandPtr>{}]() mutable {
+        holder = supplier();
+        return holder->get();
+      }) {}
+WPI_UNIGNORE_DEPRECATED
+
 ProxyCommand::ProxyCommand(Command* command)
     : m_supplier([command] { return command; }) {
-  SetName(std::string{"Proxy("}.append(command->GetName()).append(")"));
+  SetName(fmt::format("Proxy({})", command->GetName()));
 }
 
-ProxyCommand::ProxyCommand(std::unique_ptr<Command> command)
-    : m_supplier([command = std::move(command)] { return command.get(); }) {}
+ProxyCommand::ProxyCommand(std::unique_ptr<Command> command) {
+  SetName(fmt::format("Proxy({})", command->GetName()));
+  m_supplier = [command = std::move(command)] { return command.get(); };
+}
 
 void ProxyCommand::Initialize() {
   m_command = m_supplier();
@@ -31,8 +47,6 @@ void ProxyCommand::End(bool interrupted) {
   m_command = nullptr;
 }
 
-void ProxyCommand::Execute() {}
-
 bool ProxyCommand::IsFinished() {
   // because we're between `initialize` and `end`, `m_command` is necessarily
   // not null but if called otherwise and m_command is null, it's UB, so we can
@@ -41,7 +55,7 @@ bool ProxyCommand::IsFinished() {
 }
 
 void ProxyCommand::InitSendable(wpi::SendableBuilder& builder) {
-  CommandBase::InitSendable(builder);
+  Command::InitSendable(builder);
   builder.AddStringProperty(
       "proxied",
       [this] {

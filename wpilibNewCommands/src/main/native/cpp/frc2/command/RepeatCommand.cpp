@@ -4,12 +4,15 @@
 
 #include "frc2/command/RepeatCommand.h"
 
+#include <string>
+#include <utility>
+
 #include <wpi/sendable/SendableBuilder.h>
 
 using namespace frc2;
 
 RepeatCommand::RepeatCommand(std::unique_ptr<Command>&& command) {
-  CommandScheduler::GetInstance().RequireUngrouped(command.get());
+  CommandScheduler::GetInstance().RequireUngroupedAndUnscheduled(command.get());
   m_command = std::move(command);
   m_command->SetComposed(true);
   AddRequirements(m_command->GetRequirements());
@@ -39,7 +42,12 @@ bool RepeatCommand::IsFinished() {
 }
 
 void RepeatCommand::End(bool interrupted) {
-  m_command->End(interrupted);
+  // Make sure we didn't already call end() (which would happen if the command
+  // finished in the last call to our execute())
+  if (!m_ended) {
+    m_command->End(interrupted);
+    m_ended = true;
+  }
 }
 
 bool RepeatCommand::RunsWhenDisabled() const {
@@ -51,7 +59,7 @@ Command::InterruptionBehavior RepeatCommand::GetInterruptionBehavior() const {
 }
 
 void RepeatCommand::InitSendable(wpi::SendableBuilder& builder) {
-  CommandBase::InitSendable(builder);
+  Command::InitSendable(builder);
   builder.AddStringProperty(
       "command", [this] { return m_command->GetName(); }, nullptr);
 }

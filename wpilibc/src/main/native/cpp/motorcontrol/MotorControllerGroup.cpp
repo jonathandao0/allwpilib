@@ -4,6 +4,9 @@
 
 #include "frc/motorcontrol/MotorControllerGroup.h"
 
+#include <utility>
+#include <vector>
+
 #include <wpi/sendable/SendableBuilder.h>
 #include <wpi/sendable/SendableRegistry.h>
 
@@ -11,6 +14,8 @@ using namespace frc;
 
 // Can't use a delegated constructor here because of an MSVC bug.
 // https://developercommunity.visualstudio.com/content/problem/583/compiler-bug-with-delegating-a-constructor.html
+
+WPI_IGNORE_DEPRECATED
 
 MotorControllerGroup::MotorControllerGroup(
     std::vector<std::reference_wrapper<MotorController>>&& motorControllers)
@@ -74,3 +79,5 @@ void MotorControllerGroup::InitSendable(wpi::SendableBuilder& builder) {
       "Value", [=, this] { return Get(); },
       [=, this](double value) { Set(value); });
 }
+
+WPI_UNIGNORE_DEPRECATED

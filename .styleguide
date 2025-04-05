@@ -10,6 +10,8 @@ cppSrcFileInclude {
 }
 
 modifiableFileExclude {
+  cmake/toolchains/
+  thirdparty/
   \.patch$
   gradlew
 }
@@ -19,6 +21,7 @@ generatedFileExclude {
   simulation/gz_msgs/src/include/simulation/gz_msgs/msgs\.h$
   fieldImages/src/main/native/resources/
   apriltag/src/test/resources/
+  wpilibc/src/generated/
 }
 
 repoRootNameOverride {
@@ -29,8 +32,10 @@ includeOtherLibs {
   ^Eigen/
   ^cameraserver/
   ^cscore
-  ^drake/
   ^fmt/
+  ^glass/
+  ^google/
+  ^gtest/
   ^hal/
   ^imgui
   ^implot

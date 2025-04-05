@@ -3,11 +3,15 @@
 // the WPILib BSD license file in the root directory of this project.
 
 #include <algorithm>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
+
+#include <gtest/gtest.h>
 
 #include "TestPrinters.h"
 #include "Value_internal.h"
-#include "gtest/gtest.h"
 #include "networktables/NetworkTableValue.h"
 
 using namespace std::string_view_literals;
@@ -83,7 +87,7 @@ TEST_F(ValueTest, String) {
   NT_InitValue(&cv);
   ConvertToC(v, &cv);
   ASSERT_EQ(NT_STRING, cv.type);
-  ASSERT_EQ("hello"sv, cv.data.v_string.str);
+  ASSERT_EQ("hello"sv, wpi::to_string_view(&cv.data.v_string));
   ASSERT_EQ(5u, cv.data.v_string.len);
 
   v = Value::MakeString("goodbye");
@@ -92,7 +96,7 @@ TEST_F(ValueTest, String) {
   NT_DisposeValue(&cv);
   ConvertToC(v, &cv);
   ASSERT_EQ(NT_STRING, cv.type);
-  ASSERT_EQ("goodbye"sv, cv.data.v_string.str);
+  ASSERT_EQ("goodbye"sv, wpi::to_string_view(&cv.data.v_string));
   ASSERT_EQ(7u, cv.data.v_string.len);
 
   NT_DisposeValue(&cv);
@@ -225,9 +229,9 @@ TEST_F(ValueTest, StringArray) {
   ConvertToC(v, &cv);
   ASSERT_EQ(NT_STRING_ARRAY, cv.type);
   ASSERT_EQ(3u, cv.data.arr_string.size);
-  ASSERT_EQ("hello"sv, cv.data.arr_string.arr[0].str);
-  ASSERT_EQ("goodbye"sv, cv.data.arr_string.arr[1].str);
-  ASSERT_EQ("string"sv, cv.data.arr_string.arr[2].str);
+  ASSERT_EQ("hello"sv, wpi::to_string_view(&cv.data.arr_string.arr[0]));
+  ASSERT_EQ("goodbye"sv, wpi::to_string_view(&cv.data.arr_string.arr[1]));
+  ASSERT_EQ("string"sv, wpi::to_string_view(&cv.data.arr_string.arr[2]));
 
   // assign with same size
   vec.clear();
@@ -244,9 +248,9 @@ TEST_F(ValueTest, StringArray) {
   ConvertToC(v, &cv);
   ASSERT_EQ(NT_STRING_ARRAY, cv.type);
   ASSERT_EQ(3u, cv.data.arr_string.size);
-  ASSERT_EQ("s1"sv, cv.data.arr_string.arr[0].str);
-  ASSERT_EQ("str2"sv, cv.data.arr_string.arr[1].str);
-  ASSERT_EQ("string3"sv, cv.data.arr_string.arr[2].str);
+  ASSERT_EQ("s1"sv, wpi::to_string_view(&cv.data.arr_string.arr[0]));
+  ASSERT_EQ("str2"sv, wpi::to_string_view(&cv.data.arr_string.arr[1]));
+  ASSERT_EQ("string3"sv, wpi::to_string_view(&cv.data.arr_string.arr[2]));
 
   // assign with different size
   vec.clear();
@@ -261,8 +265,8 @@ TEST_F(ValueTest, StringArray) {
   ConvertToC(v, &cv);
   ASSERT_EQ(NT_STRING_ARRAY, cv.type);
   ASSERT_EQ(2u, cv.data.arr_string.size);
-  ASSERT_EQ("short"sv, cv.data.arr_string.arr[0].str);
-  ASSERT_EQ("er"sv, cv.data.arr_string.arr[1].str);
+  ASSERT_EQ("short"sv, wpi::to_string_view(&cv.data.arr_string.arr[0]));
+  ASSERT_EQ("er"sv, wpi::to_string_view(&cv.data.arr_string.arr[1]));
 
   NT_DisposeValue(&cv);
 }
@@ -336,6 +340,58 @@ TEST_F(ValueTest, BooleanArrayComparison) {
   vec = {1, 0};
   v2 = Value::MakeBooleanArray(vec);
   ASSERT_NE(v1, v2);
+
+  // empty
+  vec = {};
+  v1 = Value::MakeBooleanArray(vec);
+  v2 = Value::MakeBooleanArray(vec);
+  ASSERT_EQ(v1, v2);
+}
+
+TEST_F(ValueTest, IntegerArrayComparison) {
+  std::vector<int64_t> vec{-42, 0, 1};
+  auto v1 = Value::MakeIntegerArray(vec);
+  auto v2 = Value::MakeIntegerArray(vec);
+  ASSERT_EQ(v1, v2);
+
+  // different contents
+  vec = {-42, 1, 1};
+  v2 = Value::MakeIntegerArray(vec);
+  ASSERT_NE(v1, v2);
+
+  // different size
+  vec = {-42, 0};
+  v2 = Value::MakeIntegerArray(vec);
+  ASSERT_NE(v1, v2);
+
+  // empty
+  vec = {};
+  v1 = Value::MakeIntegerArray(vec);
+  v2 = Value::MakeIntegerArray(vec);
+  ASSERT_EQ(v1, v2);
+}
+
+TEST_F(ValueTest, FloatArrayComparison) {
+  std::vector<float> vec{0.5, 0.25, 0.5};
+  auto v1 = Value::MakeFloatArray(vec);
+  auto v2 = Value::MakeFloatArray(vec);
+  ASSERT_EQ(v1, v2);
+
+  // different contents
+  vec = {0.5, 0.5, 0.5};
+  v2 = Value::MakeFloatArray(vec);
+  ASSERT_NE(v1, v2);
+
+  // different size
+  vec = {0.5, 0.25};
+  v2 = Value::MakeFloatArray(vec);
+  ASSERT_NE(v1, v2);
+
+  // empty
+  vec = {};
+  v1 = Value::MakeFloatArray(vec);
+  v2 = Value::MakeFloatArray(vec);
+  ASSERT_EQ(v1, v2);
 }
 
 TEST_F(ValueTest, DoubleArrayComparison) {
@@ -353,6 +409,12 @@ TEST_F(ValueTest, DoubleArrayComparison) {
   vec = {0.5, 0.25};
   v2 = Value::MakeDoubleArray(vec);
   ASSERT_NE(v1, v2);
+
+  // empty
+  vec = {};
+  v1 = Value::MakeDoubleArray(vec);
+  v2 = Value::MakeDoubleArray(vec);
+  ASSERT_EQ(v1, v2);
 }
 
 TEST_F(ValueTest, StringArrayComparison) {
@@ -390,6 +452,12 @@ TEST_F(ValueTest, StringArrayComparison) {
   vec.push_back("goodbye");
   v2 = Value::MakeStringArray(std::move(vec));
   ASSERT_NE(v1, v2);
+
+  // empty
+  vec.clear();
+  v1 = Value::MakeStringArray(vec);
+  v2 = Value::MakeStringArray(std::move(vec));
+  ASSERT_EQ(v1, v2);
 }
 
 }  // namespace nt

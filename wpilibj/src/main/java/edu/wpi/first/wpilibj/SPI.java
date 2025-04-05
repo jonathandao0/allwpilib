@@ -14,13 +14,20 @@ import java.nio.IntBuffer;
 
 /** Represents an SPI bus port. */
 public class SPI implements AutoCloseable {
+  /** SPI port. */
   public enum Port {
+    /** Onboard SPI bus port CS0. */
     kOnboardCS0(SPIJNI.ONBOARD_CS0_PORT),
-    kOnboardCS1(SPIJNI.ONBOARD_CS0_PORT),
-    kOnboardCS2(SPIJNI.ONBOARD_CS0_PORT),
-    kOnboardCS3(SPIJNI.ONBOARD_CS0_PORT),
+    /** Onboard SPI bus port CS1. */
+    kOnboardCS1(SPIJNI.ONBOARD_CS1_PORT),
+    /** Onboard SPI bus port CS2. */
+    kOnboardCS2(SPIJNI.ONBOARD_CS2_PORT),
+    /** Onboard SPI bus port CS3. */
+    kOnboardCS3(SPIJNI.ONBOARD_CS3_PORT),
+    /** MXP (roboRIO MXP) SPI bus port. */
     kMXP(SPIJNI.MXP_PORT);
 
+    /** SPI port value. */
     public final int value;
 
     Port(int value) {
@@ -28,12 +35,18 @@ public class SPI implements AutoCloseable {
     }
   }
 
+  /** SPI mode. */
   public enum Mode {
+    /** Clock idle low, data sampled on rising edge. */
     kMode0(SPIJNI.SPI_MODE0),
+    /** Clock idle low, data sampled on falling edge. */
     kMode1(SPIJNI.SPI_MODE1),
+    /** Clock idle high, data sampled on falling edge. */
     kMode2(SPIJNI.SPI_MODE2),
+    /** Clock idle high, data sampled on rising edge. */
     kMode3(SPIJNI.SPI_MODE3);
 
+    /** SPI mode value. */
     public final int value;
 
     Mode(int value) {
@@ -41,8 +54,7 @@ public class SPI implements AutoCloseable {
     }
   }
 
-  private int m_port;
-  private int m_mode;
+  private final int m_port;
 
   /**
    * Constructor.
@@ -54,12 +66,16 @@ public class SPI implements AutoCloseable {
 
     SPIJNI.spiInitialize(m_port);
 
-    m_mode = 0;
-    SPIJNI.spiSetMode(m_port, m_mode);
+    SPIJNI.spiSetMode(m_port, 0);
 
     HAL.report(tResourceType.kResourceType_SPI, port.value + 1);
   }
 
+  /**
+   * Returns the SPI port value.
+   *
+   * @return SPI port value.
+   */
   public int getPort() {
     return m_port;
   }
@@ -84,76 +100,6 @@ public class SPI implements AutoCloseable {
   }
 
   /**
-   * Configure the order that bits are sent and received on the wire to be the most significant bit
-   * first.
-   *
-   * @deprecated Does not work, will be removed.
-   */
-  @Deprecated(since = "2023", forRemoval = true)
-  public final void setMSBFirst() {
-    DriverStation.reportWarning("setMSBFirst not supported by roboRIO", false);
-  }
-
-  /**
-   * Configure the order that bits are sent and received on the wire to be the least significant bit
-   * first.
-   *
-   * @deprecated Does not work, will be removed.
-   */
-  @Deprecated(since = "2023", forRemoval = true)
-  public final void setLSBFirst() {
-    DriverStation.reportWarning("setLSBFirst not supported by roboRIO", false);
-  }
-
-  /**
-   * Configure the clock output line to be active low. This is sometimes called clock polarity high
-   * or clock idle high.
-   *
-   * @deprecated Use setMode() instead.
-   */
-  @Deprecated(since = "2023", forRemoval = true)
-  public final void setClockActiveLow() {
-    m_mode |= 1;
-    SPIJNI.spiSetMode(m_port, m_mode);
-  }
-
-  /**
-   * Configure the clock output line to be active high. This is sometimes called clock polarity low
-   * or clock idle low.
-   *
-   * @deprecated Use setMode() instead.
-   */
-  @Deprecated(since = "2023", forRemoval = true)
-  public final void setClockActiveHigh() {
-    m_mode &= 1;
-    SPIJNI.spiSetMode(m_port, m_mode);
-  }
-
-  /**
-   * Configure that the data is stable on the leading edge and the data changes on the trailing
-   * edge.
-   *
-   * @deprecated Use setMode() instead.
-   */
-  @Deprecated(since = "2023", forRemoval = true)
-  public final void setSampleDataOnLeadingEdge() {
-    m_mode &= 2;
-    SPIJNI.spiSetMode(m_port, m_mode);
-  }
-
-  /**
-   * Configure that the data is stable on the trailing edge and the data changes on the leading
-   * edge.
-   *
-   * @deprecated Use setMode() instead.
-   */
-  @Deprecated(since = "2023", forRemoval = true)
-  public final void setSampleDataOnTrailingEdge() {
-    m_mode |= 2;
-    SPIJNI.spiSetMode(m_port, m_mode);
-  }
-
-  /**
    * Sets the mode for the SPI device.
    *
    * <p>Mode 0 is Clock idle low, data sampled on rising edge.
@@ -167,8 +113,7 @@ public class SPI implements AutoCloseable {
    * @param mode The mode to set.
    */
   public final void setMode(Mode mode) {
-    m_mode = mode.value & 0x3;
-    SPIJNI.spiSetMode(m_port, m_mode);
+    SPIJNI.spiSetMode(m_port, mode.value & 0x3);
   }
 
   /** Configure the chip select line to be active high. */
@@ -195,7 +140,7 @@ public class SPI implements AutoCloseable {
     if (dataToSend.length < size) {
       throw new IllegalArgumentException("buffer is too small, must be at least " + size);
     }
-    return SPIJNI.spiWriteB(m_port, dataToSend, (byte) size);
+    return SPIJNI.spiWriteB(m_port, dataToSend, size);
   }
 
   /**
@@ -218,7 +163,7 @@ public class SPI implements AutoCloseable {
     if (dataToSend.capacity() < size) {
       throw new IllegalArgumentException("buffer is too small, must be at least " + size);
     }
-    return SPIJNI.spiWrite(m_port, dataToSend, (byte) size);
+    return SPIJNI.spiWrite(m_port, dataToSend, size);
   }
 
   /**
@@ -239,7 +184,7 @@ public class SPI implements AutoCloseable {
     if (dataReceived.length < size) {
       throw new IllegalArgumentException("buffer is too small, must be at least " + size);
     }
-    return SPIJNI.spiReadB(m_port, initiate, dataReceived, (byte) size);
+    return SPIJNI.spiReadB(m_port, initiate, dataReceived, size);
   }
 
   /**
@@ -266,7 +211,7 @@ public class SPI implements AutoCloseable {
     if (dataReceived.capacity() < size) {
       throw new IllegalArgumentException("buffer is too small, must be at least " + size);
     }
-    return SPIJNI.spiRead(m_port, initiate, dataReceived, (byte) size);
+    return SPIJNI.spiRead(m_port, initiate, dataReceived, size);
   }
 
   /**
@@ -284,7 +229,7 @@ public class SPI implements AutoCloseable {
     if (dataReceived.length < size) {
       throw new IllegalArgumentException("dataReceived is too small, must be at least " + size);
     }
-    return SPIJNI.spiTransactionB(m_port, dataToSend, dataReceived, (byte) size);
+    return SPIJNI.spiTransactionB(m_port, dataToSend, dataReceived, size);
   }
 
   /**
@@ -311,7 +256,7 @@ public class SPI implements AutoCloseable {
     if (dataReceived.capacity() < size) {
       throw new IllegalArgumentException("dataReceived is too small, must be at least " + size);
     }
-    return SPIJNI.spiTransaction(m_port, dataToSend, dataReceived, (byte) size);
+    return SPIJNI.spiTransaction(m_port, dataToSend, dataReceived, size);
   }
 
   /**

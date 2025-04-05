@@ -50,6 +50,7 @@ gradle.taskGraph.addTaskExecutionGraphListener { graph ->
 }
 
 sourceSets.main.java.srcDir "${buildDir}/generated/java/"
+sourceSets.main.java.srcDir "${projectDir}/src/generated/main/java"
 
 compileJava {
     dependsOn generateJavaVersion
@@ -70,13 +71,6 @@ dependencies {
     implementation project(':cscore')
     implementation project(':cameraserver')
     testImplementation 'org.mockito:mockito-core:4.1.0'
-    devImplementation project(':hal')
-    devImplementation project(':wpiutil')
-    devImplementation project(':wpinet')
-    devImplementation project(':wpimath')
-    devImplementation project(':ntcore')
-    devImplementation project(':cscore')
-    devImplementation project(':cameraserver')
     devImplementation sourceSets.main.output
 }
 
@@ -150,12 +144,8 @@ model {
                                 def filePath = it.tasks.install.installDirectory.get().toString() + File.separatorChar + 'lib'
                                 test.dependsOn it.tasks.install
                                 test.systemProperty 'java.library.path', filePath
-                                test.environment 'LD_LIBRARY_PATH', filePath
-                                test.workingDir filePath
                                 run.dependsOn it.tasks.install
                                 run.systemProperty 'java.library.path', filePath
-                                run.environment 'LD_LIBRARY_PATH', filePath
-                                run.workingDir filePath
 
                                 found = true
                             }

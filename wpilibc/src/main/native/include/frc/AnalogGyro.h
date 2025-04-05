@@ -6,11 +6,12 @@
 
 #include <memory>
 
+#include <hal/AnalogGyro.h>
 #include <hal/Types.h>
 #include <wpi/sendable/Sendable.h>
 #include <wpi/sendable/SendableHelper.h>
 
-#include "frc/interfaces/Gyro.h"
+#include "frc/geometry/Rotation2d.h"
 
 namespace frc {
 
@@ -29,8 +30,7 @@ class AnalogInput;
  *
  * This class is for gyro sensors that connect to an analog input.
  */
-class AnalogGyro : public Gyro,
-                   public wpi::Sendable,
+class AnalogGyro : public wpi::Sendable,
                    public wpi::SendableHelper<AnalogGyro> {
  public:
   static constexpr int kOversampleBits = 10;
@@ -101,10 +101,10 @@ class AnalogGyro : public Gyro,
    */
   AnalogGyro(std::shared_ptr<AnalogInput> channel, int center, double offset);
 
-  ~AnalogGyro() override;
-
   AnalogGyro(AnalogGyro&& rhs) = default;
   AnalogGyro& operator=(AnalogGyro&& rhs) = default;
+
+  ~AnalogGyro() override = default;
 
   /**
    * Return the actual angle in degrees that the robot is currently facing.
@@ -118,7 +118,7 @@ class AnalogGyro : public Gyro,
    * @return The current heading of the robot in degrees. This heading is based
    *         on integration of the returned rate from the gyro.
    */
-  double GetAngle() const override;
+  double GetAngle() const;
 
   /**
    * Return the rate of rotation of the gyro
@@ -127,7 +127,7 @@ class AnalogGyro : public Gyro,
    *
    * @return the current rate in degrees per second
    */
-  double GetRate() const override;
+  double GetRate() const;
 
   /**
    * Return the gyro center value. If run after calibration,
@@ -174,7 +174,7 @@ class AnalogGyro : public Gyro,
    * significant drift in the gyro and it needs to be recalibrated after it has
    * been running.
    */
-  void Reset() final;
+  void Reset();
 
   /**
    * Initialize the gyro.
@@ -183,7 +183,32 @@ class AnalogGyro : public Gyro,
    */
   void InitGyro();
 
-  void Calibrate() final;
+  /**
+   * Calibrate the gyro by running for a number of samples and computing the
+   * center value. Then use the center value as the Accumulator center value for
+   * subsequent measurements.
+   *
+   * It's important to make sure that the robot is not moving while the
+   * centering calculations are in progress, this is typically done when the
+   * robot is first turned on while it's sitting at rest before the competition
+   * starts.
+   */
+  void Calibrate();
+
+  /**
+   * Return the heading of the robot as a Rotation2d.
+   *
+   * The angle is continuous, that is it will continue from 360 to 361 degrees.
+   * This allows algorithms that wouldn't want to see a discontinuity in the
+   * gyro output as it sweeps past from 360 to 0 on the second time around.
+   *
+   * The angle is expected to increase as the gyro turns counterclockwise when
+   * looked at from the top. It needs to follow the NWU axis convention.
+   *
+   * @return the current heading of the robot as a Rotation2d. This heading is
+   *         based on integration of the returned rate from the gyro.
+   */
+  Rotation2d GetRotation2d() const;
 
   /**
    * Gets the analog input for the gyro.
@@ -194,11 +219,9 @@ class AnalogGyro : public Gyro,
 
   void InitSendable(wpi::SendableBuilder& builder) override;
 
- protected:
-  std::shared_ptr<AnalogInput> m_analog;
-
  private:
-  hal::Handle<HAL_GyroHandle> m_gyroHandle;
+  std::shared_ptr<AnalogInput> m_analog;
+  hal::Handle<HAL_GyroHandle, HAL_FreeAnalogGyro> m_gyroHandle;
 };
 
 }  // namespace frc

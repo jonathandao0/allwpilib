@@ -26,20 +26,43 @@ class DutyCycleEncoderSim {
   explicit DutyCycleEncoderSim(const DutyCycleEncoder& encoder);
 
   /**
-   * Set the position tin turns.
+   * Constructs from a digital input channel.
    *
-   * @param turns The position.
+   * @param channel digital input channel
    */
-  void Set(units::turn_t turns);
+  explicit DutyCycleEncoderSim(int channel);
+
+  /**
+   * Get the position.
+   *
+   * @return The position.
+   */
+  double Get();
 
   /**
    * Set the position.
+   *
+   * @param value The position.
    */
-  void SetDistance(double distance);
+  void Set(double value);
+
+  /**
+   * Get if the encoder is connected.
+   *
+   * @return true if the encoder is connected.
+   */
+  bool IsConnected();
+
+  /**
+   * Set if the encoder is connected.
+   *
+   * @param isConnected Whether or not the sensor is connected.
+   */
+  void SetConnected(bool isConnected);
 
  private:
   hal::SimDouble m_simPosition;
-  hal::SimDouble m_simDistancePerRotation;
+  hal::SimBoolean m_simIsConnected;
 };
 
 }  // namespace sim

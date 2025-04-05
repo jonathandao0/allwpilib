@@ -4,15 +4,19 @@
 
 package edu.wpi.first.math.geometry;
 
+import edu.wpi.first.math.geometry.proto.Twist3dProto;
+import edu.wpi.first.math.geometry.struct.Twist3dStruct;
+import edu.wpi.first.util.protobuf.ProtobufSerializable;
+import edu.wpi.first.util.struct.StructSerializable;
 import java.util.Objects;
 
 /**
  * A change in distance along a 3D arc since the last pose update. We can use ideas from
- * differential calculus to create new Pose3d objects from a Twist3d and vise versa.
+ * differential calculus to create new Pose3d objects from a Twist3d and vice versa.
  *
  * <p>A Twist can be used to represent a difference between two poses.
  */
-public class Twist3d {
+public class Twist3d implements ProtobufSerializable, StructSerializable {
   /** Linear "dx" component. */
   public double dx;
 
@@ -31,6 +35,7 @@ public class Twist3d {
   /** Rotation vector z component (radians). */
   public double rz;
 
+  /** Default constructor. */
   public Twist3d() {}
 
   /**
@@ -67,19 +72,23 @@ public class Twist3d {
    */
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof Twist3d) {
-      return Math.abs(((Twist3d) obj).dx - dx) < 1E-9
-          && Math.abs(((Twist3d) obj).dy - dy) < 1E-9
-          && Math.abs(((Twist3d) obj).dz - dz) < 1E-9
-          && Math.abs(((Twist3d) obj).rx - rx) < 1E-9
-          && Math.abs(((Twist3d) obj).ry - ry) < 1E-9
-          && Math.abs(((Twist3d) obj).rz - rz) < 1E-9;
-    }
-    return false;
+    return obj instanceof Twist3d other
+        && Math.abs(other.dx - dx) < 1E-9
+        && Math.abs(other.dy - dy) < 1E-9
+        && Math.abs(other.dz - dz) < 1E-9
+        && Math.abs(other.rx - rx) < 1E-9
+        && Math.abs(other.ry - ry) < 1E-9
+        && Math.abs(other.rz - rz) < 1E-9;
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(dx, dy, dz, rx, ry, rz);
   }
+
+  /** Twist3d protobuf for serialization. */
+  public static final Twist3dProto proto = new Twist3dProto();
+
+  /** Twist3d struct for serialization. */
+  public static final Twist3dStruct struct = new Twist3dStruct();
 }

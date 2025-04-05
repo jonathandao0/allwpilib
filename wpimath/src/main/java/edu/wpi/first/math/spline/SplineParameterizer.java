@@ -38,6 +38,11 @@ public final class SplineParameterizer {
   private static final double kMaxDy = 0.00127;
   private static final double kMaxDtheta = 0.0872;
 
+  private static final String kMalformedSplineExceptionMsg =
+      "Could not parameterize a malformed spline. This means that you probably had two or more "
+          + "adjacent waypoints that were very close together with headings in opposing "
+          + "directions.";
+
   /**
    * A malformed spline does not actually explode the LIFO stack size. Instead, the stack size stays
    * at a relatively small number (e.g. 30) and never decreases. Because of this, we must count
@@ -56,7 +61,8 @@ public final class SplineParameterizer {
     }
   }
 
-  public static class MalformedSplineException extends RuntimeException {
+  /** Exception for malformed splines. */
+  public static final class MalformedSplineException extends RuntimeException {
     /**
      * Create a new exception with the given message.
      *
@@ -71,8 +77,8 @@ public final class SplineParameterizer {
   private SplineParameterizer() {}
 
   /**
-   * Parameterizes the spline. This method breaks up the spline into various arcs until their dx,
-   * dy, and dtheta are within specific tolerances.
+   * Parametrizes the spline. This method breaks up the spline into various arcs until their dx, dy,
+   * and dtheta are within specific tolerances.
    *
    * @param spline The spline to parameterize.
    * @return A list of poses and curvatures that represents various points on the spline.
@@ -84,8 +90,8 @@ public final class SplineParameterizer {
   }
 
   /**
-   * Parameterizes the spline. This method breaks up the spline into various arcs until their dx,
-   * dy, and dtheta are within specific tolerances.
+   * Parametrizes the spline. This method breaks up the spline into various arcs until their dx, dy,
+   * and dtheta are within specific tolerances.
    *
    * @param spline The spline to parameterize.
    * @param t0 Starting internal spline parameter. It is recommended to use 0.0.
@@ -98,39 +104,41 @@ public final class SplineParameterizer {
     var splinePoints = new ArrayList<PoseWithCurvature>();
 
     // The parameterization does not add the initial point. Let's add that.
-    splinePoints.add(spline.getPoint(t0));
+    splinePoints.add(spline.getPoint(t0).get());
 
     // We use an "explicit stack" to simulate recursion, instead of a recursive function call
     // This give us greater control, instead of a stack overflow
     var stack = new ArrayDeque<StackContents>();
     stack.push(new StackContents(t0, t1));
 
-    StackContents current;
-    PoseWithCurvature start;
-    PoseWithCurvature end;
     int iterations = 0;
 
     while (!stack.isEmpty()) {
-      current = stack.removeFirst();
-      start = spline.getPoint(current.t0);
-      end = spline.getPoint(current.t1);
+      var current = stack.removeFirst();
 
-      final var twist = start.poseMeters.log(end.poseMeters);
+      var start = spline.getPoint(current.t0);
+      if (!start.isPresent()) {
+        throw new MalformedSplineException(kMalformedSplineExceptionMsg);
+      }
+
+      var end = spline.getPoint(current.t1);
+      if (!end.isPresent()) {
+        throw new MalformedSplineException(kMalformedSplineExceptionMsg);
+      }
+
+      final var twist = start.get().poseMeters.log(end.get().poseMeters);
       if (Math.abs(twist.dy) > kMaxDy
           || Math.abs(twist.dx) > kMaxDx
           || Math.abs(twist.dtheta) > kMaxDtheta) {
         stack.addFirst(new StackContents((current.t0 + current.t1) / 2, current.t1));
         stack.addFirst(new StackContents(current.t0, (current.t0 + current.t1) / 2));
       } else {
-        splinePoints.add(spline.getPoint(current.t1));
+        splinePoints.add(end.get());
       }
 
       iterations++;
       if (iterations >= kMaxIterations) {
-        throw new MalformedSplineException(
-            "Could not parameterize a malformed spline. This means that you probably had two or "
-                + " more adjacent waypoints that were very close together with headings in "
-                + "opposing directions.");
+        throw new MalformedSplineException(kMalformedSplineExceptionMsg);
       }
     }
 

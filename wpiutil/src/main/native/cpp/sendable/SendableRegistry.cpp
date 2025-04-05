@@ -5,8 +5,11 @@
 #include "wpi/sendable/SendableRegistry.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
-#include "fmt/format.h"
+#include <fmt/format.h>
+
 #include "wpi/DenseMap.h"
 #include "wpi/SmallVector.h"
 #include "wpi/UidVector.h"
@@ -77,6 +80,10 @@ void ResetSendableRegistry() {
 }
 }  // namespace wpi::impl
 #endif
+
+void SendableRegistry::EnsureInitialized() {
+  GetInstance();
+}
 
 void SendableRegistry::SetLiveWindowBuilderFactory(
     std::function<std::unique_ptr<SendableBuilder>()> factory) {

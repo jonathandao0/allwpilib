@@ -4,24 +4,15 @@
 
 #include "frc2/command/FunctionalCommand.h"
 
-using namespace frc2;
+#include <utility>
 
-FunctionalCommand::FunctionalCommand(
-    std::function<void()> onInit, std::function<void()> onExecute,
-    std::function<void(bool)> onEnd, std::function<bool()> isFinished,
-    std::initializer_list<Subsystem*> requirements)
-    : m_onInit{std::move(onInit)},
-      m_onExecute{std::move(onExecute)},
-      m_onEnd{std::move(onEnd)},
-      m_isFinished{std::move(isFinished)} {
-  AddRequirements(requirements);
-}
+using namespace frc2;
 
 FunctionalCommand::FunctionalCommand(std::function<void()> onInit,
                                      std::function<void()> onExecute,
                                      std::function<void(bool)> onEnd,
                                      std::function<bool()> isFinished,
-                                     std::span<Subsystem* const> requirements)
+                                     Requirements requirements)
     : m_onInit{std::move(onInit)},
       m_onExecute{std::move(onExecute)},
       m_onEnd{std::move(onEnd)},

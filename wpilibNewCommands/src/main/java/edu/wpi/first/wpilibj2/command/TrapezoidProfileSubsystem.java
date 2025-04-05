@@ -13,10 +13,13 @@ import edu.wpi.first.math.trajectory.TrapezoidProfile;
  * how to use the current state of the motion profile by overriding the `useState` method.
  *
  * <p>This class is provided by the NewCommands VendorDep
+ *
+ * @deprecated Use a TrapezoidProfile instead
  */
+@Deprecated(forRemoval = true, since = "2025")
 public abstract class TrapezoidProfileSubsystem extends SubsystemBase {
   private final double m_period;
-  private final TrapezoidProfile.Constraints m_constraints;
+  private final TrapezoidProfile m_profile;
 
   private TrapezoidProfile.State m_state;
   private TrapezoidProfile.State m_goal;
@@ -33,7 +36,8 @@ public abstract class TrapezoidProfileSubsystem extends SubsystemBase {
    */
   public TrapezoidProfileSubsystem(
       TrapezoidProfile.Constraints constraints, double initialPosition, double period) {
-    m_constraints = requireNonNullParam(constraints, "constraints", "TrapezoidProfileSubsystem");
+    requireNonNullParam(constraints, "constraints", "TrapezoidProfileSubsystem");
+    m_profile = new TrapezoidProfile(constraints);
     m_state = new TrapezoidProfile.State(initialPosition, 0);
     setGoal(initialPosition);
     m_period = period;
@@ -62,8 +66,7 @@ public abstract class TrapezoidProfileSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
-    var profile = new TrapezoidProfile(m_constraints, m_goal, m_state);
-    m_state = profile.calculate(m_period);
+    m_state = m_profile.calculate(m_period, m_state, m_goal);
     if (m_enabled) {
       useState(m_state);
     }
@@ -74,7 +77,7 @@ public abstract class TrapezoidProfileSubsystem extends SubsystemBase {
    *
    * @param goal The goal state for the subsystem's motion profile.
    */
-  public void setGoal(TrapezoidProfile.State goal) {
+  public final void setGoal(TrapezoidProfile.State goal) {
     m_goal = goal;
   }
 
@@ -83,7 +86,7 @@ public abstract class TrapezoidProfileSubsystem extends SubsystemBase {
    *
    * @param goal The goal position for the subsystem's motion profile.
    */
-  public void setGoal(double goal) {
+  public final void setGoal(double goal) {
     setGoal(new TrapezoidProfile.State(goal, 0));
   }
 

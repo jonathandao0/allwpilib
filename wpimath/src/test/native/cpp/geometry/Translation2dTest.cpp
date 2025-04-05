@@ -4,8 +4,9 @@
 
 #include <cmath>
 
+#include <gtest/gtest.h>
+
 #include "frc/geometry/Translation2d.h"
-#include "gtest/gtest.h"
 
 using namespace frc;
 
@@ -34,7 +35,16 @@ TEST(Translation2dTest, RotateBy) {
   const auto rotated = another.RotateBy(90_deg);
 
   EXPECT_NEAR(0.0, rotated.X().value(), 1e-9);
-  EXPECT_DOUBLE_EQ(3.0, rotated.Y().value());
+  EXPECT_NEAR(3.0, rotated.Y().value(), 1e-9);
+}
+
+TEST(Translation2dTest, RotateAround) {
+  const Translation2d translation{2_m, 1_m};
+  const Translation2d other{3_m, 2_m};
+  const auto rotated = translation.RotateAround(other, 180_deg);
+
+  EXPECT_NEAR(4.0, rotated.X().value(), 1e-9);
+  EXPECT_NEAR(3.0, rotated.Y().value(), 1e-9);
 }
 
 TEST(Translation2dTest, Multiplication) {
@@ -92,6 +102,47 @@ TEST(Translation2dTest, PolarConstructor) {
   Translation2d two{2_m, Rotation2d{60_deg}};
   EXPECT_DOUBLE_EQ(1.0, two.X().value());
   EXPECT_DOUBLE_EQ(std::sqrt(3.0), two.Y().value());
+}
+
+TEST(Translation2dTest, Nearest) {
+  const Translation2d origin{0_m, 0_m};
+
+  const Translation2d translation1{1_m, Rotation2d{45_deg}};
+  const Translation2d translation2{2_m, Rotation2d{90_deg}};
+  const Translation2d translation3{3_m, Rotation2d{135_deg}};
+  const Translation2d translation4{4_m, Rotation2d{180_deg}};
+  const Translation2d translation5{5_m, Rotation2d{270_deg}};
+
+  EXPECT_DOUBLE_EQ(
+      origin.Nearest({translation5, translation3, translation4}).X().value(),
+      translation3.X().value());
+  EXPECT_DOUBLE_EQ(
+      origin.Nearest({translation5, translation3, translation4}).Y().value(),
+      translation3.Y().value());
+
+  EXPECT_DOUBLE_EQ(
+      origin.Nearest({translation1, translation2, translation3}).X().value(),
+      translation1.X().value());
+  EXPECT_DOUBLE_EQ(
+      origin.Nearest({translation1, translation2, translation3}).Y().value(),
+      translation1.Y().value());
+
+  EXPECT_DOUBLE_EQ(
+      origin.Nearest({translation4, translation2, translation3}).X().value(),
+      translation2.X().value());
+  EXPECT_DOUBLE_EQ(
+      origin.Nearest({translation4, translation2, translation3}).Y().value(),
+      translation2.Y().value());
+}
+
+TEST(Translation2dTest, ToVector) {
+  const Eigen::Vector2d vec(1.0, 2.0);
+  const Translation2d translation{vec};
+
+  EXPECT_DOUBLE_EQ(vec[0], translation.X().value());
+  EXPECT_DOUBLE_EQ(vec[1], translation.Y().value());
+
+  EXPECT_TRUE(vec == translation.ToVector());
 }
 
 TEST(Translation2dTest, Constexpr) {

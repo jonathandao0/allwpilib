@@ -5,6 +5,8 @@
 #include "wpinet/uv/FsEvent.h"
 
 #include <cstdlib>
+#include <memory>
+#include <string>
 
 #include <wpi/SmallString.h>
 
@@ -13,6 +15,9 @@
 namespace wpi::uv {
 
 std::shared_ptr<FsEvent> FsEvent::Create(Loop& loop) {
+  if (loop.IsClosing()) {
+    return nullptr;
+  }
   auto h = std::make_shared<FsEvent>(private_init{});
   int err = uv_fs_event_init(loop.GetRaw(), h->GetRaw());
   if (err < 0) {

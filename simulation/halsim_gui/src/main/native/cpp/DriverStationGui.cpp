@@ -4,12 +4,6 @@
 
 #include "DriverStationGui.h"
 
-#include <glass/Context.h>
-#include <glass/Storage.h>
-#include <glass/other/FMS.h>
-#include <glass/support/ExtraGuiWidgets.h>
-#include <glass/support/NameSetting.h>
-
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -20,6 +14,11 @@
 
 #include <GLFW/glfw3.h>
 #include <fmt/format.h>
+#include <glass/Context.h>
+#include <glass/Storage.h>
+#include <glass/other/FMS.h>
+#include <glass/support/ExtraGuiWidgets.h>
+#include <glass/support/NameSetting.h>
 #include <hal/DriverStationTypes.h>
 #include <hal/simulation/DriverStationData.h>
 #include <hal/simulation/MockHooks.h>
@@ -227,36 +226,24 @@ class FMSSimModel : public glass::FMSModel {
   glass::DataSource* GetAutonomousData() override { return &m_autonomous; }
   std::string_view GetGameSpecificMessage(
       wpi::SmallVectorImpl<char>& buf) override {
-    HAL_MatchInfo info;
-    HALSIM_GetMatchInfo(&info);
-    buf.clear();
-    buf.append(info.gameSpecificMessage,
-               info.gameSpecificMessage + info.gameSpecificMessageSize);
-    return std::string_view(buf.begin(), buf.size());
+    return m_gameMessage;
   }
 
-  void SetFmsAttached(bool val) override {
-    HALSIM_SetDriverStationFmsAttached(val);
-  }
-  void SetDsAttached(bool val) override {
-    HALSIM_SetDriverStationDsAttached(val);
-  }
+  void SetFmsAttached(bool val) override { m_fmsAttached.SetValue(val); }
+  void SetDsAttached(bool val) override { m_dsAttached.SetValue(val); }
   void SetAllianceStationId(int val) override {
-    HALSIM_SetDriverStationAllianceStationId(
-        static_cast<HAL_AllianceStationID>(val));
+    m_allianceStationId.SetValue(val);
   }
-  void SetMatchTime(double val) override {
-    HALSIM_SetDriverStationMatchTime(val);
-  }
-  void SetEStop(bool val) override { HALSIM_SetDriverStationEStop(val); }
-  void SetEnabled(bool val) override { HALSIM_SetDriverStationEnabled(val); }
-  void SetTest(bool val) override { HALSIM_SetDriverStationTest(val); }
-  void SetAutonomous(bool val) override {
-    HALSIM_SetDriverStationAutonomous(val);
-  }
+  void SetMatchTime(double val) override { m_matchTime.SetValue(val); }
+  void SetEStop(bool val) override { m_estop.SetValue(val); }
+  void SetEnabled(bool val) override { m_enabled.SetValue(val); }
+  void SetTest(bool val) override { m_test.SetValue(val); }
+  void SetAutonomous(bool val) override { m_autonomous.SetValue(val); }
   void SetGameSpecificMessage(std::string_view val) override {
-    HALSIM_SetGameSpecificMessage(val.data(), val.size());
+    m_gameMessage = val;
   }
+
+  void UpdateHAL();
 
   void Update() override;
 
@@ -274,6 +261,7 @@ class FMSSimModel : public glass::FMSModel {
   glass::DataSource m_test{"FMS:TestMode"};
   glass::DataSource m_autonomous{"FMS:AutonomousMode"};
   double m_startMatchTime = -1.0;
+  std::string m_gameMessage;
 };
 
 }  // namespace
@@ -487,7 +475,7 @@ void GlfwSystemJoystick::GetData(HALJoystickData* data, bool mapGamepad) const {
     }
   } else {
     std::memcpy(data->axes.axes, sysAxes,
-                data->axes.count * sizeof(&data->axes.axes[0]));
+                data->axes.count * sizeof(data->axes.axes[0]));
   }
 
   data->povs.count = data->desc.povCount;
@@ -555,8 +543,8 @@ KeyboardJoystick::KeyboardJoystick(glass::Storage& storage, int index)
       m_axisStorage{storage.GetChildArray("axisConfig")},
       m_buttonKey{storage.GetIntArray("buttonKeys")},
       m_povStorage{storage.GetChildArray("povConfig")} {
-  std::snprintf(m_name, sizeof(m_name), "Keyboard %d", index);
-  std::snprintf(m_guid, sizeof(m_guid), "Keyboard%d", index);
+  wpi::format_to_n_c_str(m_name, sizeof(m_name), "Keyboard {}", index);
+  wpi::format_to_n_c_str(m_guid, sizeof(m_guid), "Keyboard{}", index);
 
   // init axes
   for (auto&& axisConfig : m_axisStorage) {
@@ -587,9 +575,15 @@ void KeyboardJoystick::EditKey(const char* label, int* key) {
   ImGui::PushID(label);
   ImGui::Text("%s", label);
   ImGui::SameLine();
+
   char editLabel[32];
-  std::snprintf(editLabel, sizeof(editLabel), "%s###edit",
-                s_keyEdit == key ? "(press key)" : GetKeyName(*key));
+  if (s_keyEdit == key) {
+    wpi::format_to_n_c_str(editLabel, sizeof(editLabel), "(press key)###edit");
+  } else {
+    wpi::format_to_n_c_str(editLabel, sizeof(editLabel), "{}###edit",
+                           GetKeyName(*key));
+  }
+
   if (ImGui::SmallButton(editLabel)) {
     s_keyEdit = key;
   }
@@ -603,6 +597,7 @@ void KeyboardJoystick::EditKey(const char* label, int* key) {
 void KeyboardJoystick::SettingsDisplay() {
   if (s_keyEdit) {
     ImGuiIO& io = ImGui::GetIO();
+    // NOLINTNEXTLINE(bugprone-sizeof-expression)
     for (int i = 0; i < IM_ARRAYSIZE(io.KeysDown); ++i) {
       if (io.KeysDown[i]) {
         // remove all other uses
@@ -633,7 +628,8 @@ void KeyboardJoystick::SettingsDisplay() {
       m_axisConfig.emplace_back(*m_axisStorage.back());
     }
     for (int i = 0; i < m_axisCount; ++i) {
-      std::snprintf(label, sizeof(label), "Axis %d", i);
+      wpi::format_to_n_c_str(label, sizeof(label), "Axis {}", i);
+
       if (ImGui::TreeNodeEx(label, ImGuiTreeNodeFlags_DefaultOpen)) {
         EditKey("Increase", &m_axisConfig[i].incKey);
         EditKey("Decrease", &m_axisConfig[i].decKey);
@@ -666,7 +662,8 @@ void KeyboardJoystick::SettingsDisplay() {
       m_buttonKey.emplace_back(-1);
     }
     for (int i = 0; i < m_buttonCount; ++i) {
-      std::snprintf(label, sizeof(label), "Button %d", i + 1);
+      wpi::format_to_n_c_str(label, sizeof(label), "Button {}", i + 1);
+
       EditKey(label, &m_buttonKey[i]);
     }
     ImGui::PopID();
@@ -688,7 +685,8 @@ void KeyboardJoystick::SettingsDisplay() {
       m_povConfig.emplace_back(*m_povStorage.back());
     }
     for (int i = 0; i < m_povCount; ++i) {
-      std::snprintf(label, sizeof(label), "POV %d", i);
+      wpi::format_to_n_c_str(label, sizeof(label), "POV {}", i);
+
       if (ImGui::TreeNodeEx(label, ImGuiTreeNodeFlags_DefaultOpen)) {
         EditKey("  0 deg", &m_povConfig[i].key0);
         EditKey(" 45 deg", &m_povConfig[i].key45);
@@ -1009,6 +1007,21 @@ void RobotJoystick::GetHAL(int i) {
   HALSIM_GetJoystickPOVs(i, &data.povs);
 }
 
+static void DriverStationConnect(bool enabled, bool autonomous, bool test) {
+  if (!HALSIM_GetDriverStationDsAttached()) {
+    // initialize FMS bits too
+    gFMSModel->SetDsAttached(true);
+    gFMSModel->SetEnabled(enabled);
+    gFMSModel->SetAutonomous(autonomous);
+    gFMSModel->SetTest(test);
+    gFMSModel->UpdateHAL();
+  } else {
+    HALSIM_SetDriverStationEnabled(enabled);
+    HALSIM_SetDriverStationAutonomous(autonomous);
+    HALSIM_SetDriverStationTest(test);
+  }
+}
+
 static void DriverStationExecute() {
   // update sources
   for (int i = 0; i < HAL_kMaxJoysticks; ++i) {
@@ -1030,16 +1043,17 @@ static void DriverStationExecute() {
 
   bool disableDS = IsDSDisabled();
   if (disableDS && !prevDisableDS) {
-    if (auto win = HALSimGui::manager->GetWindow("System Joysticks")) {
+    if (auto win = DriverStationGui::dsManager->GetWindow("System Joysticks")) {
       win->SetVisibility(glass::Window::kDisabled);
     }
   } else if (!disableDS && prevDisableDS) {
-    if (auto win = HALSimGui::manager->GetWindow("System Joysticks")) {
+    if (auto win = DriverStationGui::dsManager->GetWindow("System Joysticks")) {
       win->SetVisibility(glass::Window::kShow);
     }
   }
   prevDisableDS = disableDS;
   if (disableDS) {
+    gFMSModel->Update();
     return;
   }
 
@@ -1062,6 +1076,7 @@ static void DriverStationExecute() {
     joy.Update();
   }
 
+  bool isAttached = HALSIM_GetDriverStationDsAttached();
   bool isEnabled = HALSIM_GetDriverStationEnabled();
   bool isAuto = HALSIM_GetDriverStationAutonomous();
   bool isTest = HALSIM_GetDriverStationTest();
@@ -1089,39 +1104,54 @@ static void DriverStationExecute() {
     }
 
     ImGui::SetNextWindowPos(ImVec2{5, 20}, ImGuiCond_FirstUseEver);
-    ImGui::Begin("Robot State", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-    if (ImGui::Selectable("Disabled", !isEnabled) || disableHotkey) {
+    const char* title = "Robot State";
+    // Accounts for size of title and collapse button
+    float minWidth = ImGui::CalcTextSize(title).x + ImGui::GetFontSize() +
+                     ImGui::GetStyle().ItemInnerSpacing.x * 2 +
+                     ImGui::GetStyle().FramePadding.x * 2 +
+                     ImGui::GetStyle().WindowBorderSize;
+    ImGui::SetNextWindowSizeConstraints(ImVec2{minWidth, 0},
+                                        ImVec2{FLT_MAX, FLT_MAX});
+    ImGui::Begin(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    if (ImGui::Selectable("Disconnected", !isAttached)) {
       HALSIM_SetDriverStationEnabled(false);
+      HALSIM_SetDriverStationDsAttached(false);
+      isAttached = false;
+      gFMSModel->Update();
     }
-    if (ImGui::Selectable("Autonomous", isEnabled && isAuto && !isTest)) {
-      HALSIM_SetDriverStationAutonomous(true);
-      HALSIM_SetDriverStationTest(false);
-      HALSIM_SetDriverStationEnabled(true);
+    if (ImGui::Selectable("Disabled", isAttached && !isEnabled) ||
+        disableHotkey) {
+      DriverStationConnect(false, false, false);
     }
-    if (ImGui::Selectable("Teleoperated", isEnabled && !isAuto && !isTest) ||
+    if (ImGui::Selectable("Autonomous",
+                          isAttached && isEnabled && isAuto && !isTest)) {
+      DriverStationConnect(true, true, false);
+    }
+    if (ImGui::Selectable("Teleoperated",
+                          isAttached && isEnabled && !isAuto && !isTest) ||
         enableHotkey) {
-      HALSIM_SetDriverStationAutonomous(false);
-      HALSIM_SetDriverStationTest(false);
-      HALSIM_SetDriverStationEnabled(true);
+      DriverStationConnect(true, false, false);
     }
     if (ImGui::Selectable("Test", isEnabled && isTest)) {
-      HALSIM_SetDriverStationAutonomous(false);
-      HALSIM_SetDriverStationTest(true);
-      HALSIM_SetDriverStationEnabled(true);
+      DriverStationConnect(true, false, true);
     }
     ImGui::End();
   }
 
   // Update HAL
-  for (int i = 0, end = gRobotJoysticks.size();
-       i < end && i < HAL_kMaxJoysticks; ++i) {
-    gRobotJoysticks[i].SetHAL(i);
+  if (isAttached && !isAuto) {
+    for (int i = 0, end = gRobotJoysticks.size();
+         i < end && i < HAL_kMaxJoysticks; ++i) {
+      gRobotJoysticks[i].SetHAL(i);
+    }
   }
 
   // Send new data every 20 ms (may be slower depending on GUI refresh rate)
   static double lastNewDataTime = 0.0;
-  if ((curTime - lastNewDataTime) > 0.02 && !HALSIM_IsTimingPaused()) {
+  if ((curTime - lastNewDataTime) > 0.02 && !HALSIM_IsTimingPaused() &&
+      isAttached) {
     lastNewDataTime = curTime;
+    gFMSModel->Update();
     HALSIM_NotifyDriverStationNewData();
   }
 }
@@ -1134,6 +1164,21 @@ FMSSimModel::FMSSimModel() {
   m_test.SetDigital(true);
   m_autonomous.SetDigital(true);
   m_matchTime.SetValue(-1.0);
+  m_allianceStationId.SetValue(HAL_AllianceStationID_kRed1);
+}
+
+void FMSSimModel::UpdateHAL() {
+  HALSIM_SetDriverStationFmsAttached(m_fmsAttached.GetValue());
+  HALSIM_SetDriverStationAllianceStationId(
+      static_cast<HAL_AllianceStationID>(m_allianceStationId.GetValue()));
+  HALSIM_SetDriverStationEStop(m_estop.GetValue());
+  HALSIM_SetDriverStationEnabled(m_enabled.GetValue());
+  HALSIM_SetDriverStationTest(m_test.GetValue());
+  HALSIM_SetDriverStationAutonomous(m_autonomous.GetValue());
+  HALSIM_SetDriverStationMatchTime(m_matchTime.GetValue());
+  auto str = wpi::make_string(m_gameMessage);
+  HALSIM_SetGameSpecificMessage(&str);
+  HALSIM_SetDriverStationDsAttached(m_dsAttached.GetValue());
 }
 
 void FMSSimModel::Update() {
@@ -1166,6 +1211,11 @@ void FMSSimModel::Update() {
     m_startMatchTime = -1.0;
   }
   m_matchTime.SetValue(matchTime);
+
+  HAL_MatchInfo info;
+  HALSIM_GetMatchInfo(&info);
+  m_gameMessage.assign(info.gameSpecificMessage,
+                       info.gameSpecificMessage + info.gameSpecificMessageSize);
 }
 
 bool FMSSimModel::IsReadOnly() {
@@ -1174,7 +1224,7 @@ bool FMSSimModel::IsReadOnly() {
 
 static void DisplaySystemJoystick(SystemJoystick& joy, int i) {
   char label[64];
-  std::snprintf(label, sizeof(label), "%d: %s", i, joy.GetName());
+  wpi::format_to_n_c_str(label, sizeof(label), "{}: {}", i, joy.GetName());
 
   // highlight if any buttons pressed
   bool anyButtonPressed = joy.IsAnyButtonPressed();
@@ -1208,7 +1258,8 @@ static void DisplaySystemJoysticks() {
     DisplaySystemJoystick(*joy, i + GLFW_JOYSTICK_LAST + 1);
     if (ImGui::BeginPopupContextItem()) {
       char buf[64];
-      std::snprintf(buf, sizeof(buf), "%s Settings", joy->GetName());
+      wpi::format_to_n_c_str(buf, sizeof(buf), "{} Settings", joy->GetName());
+
       if (ImGui::MenuItem(buf)) {
         if (auto win = DriverStationGui::dsManager->GetWindow(buf)) {
           win->SetVisible(true);
@@ -1293,7 +1344,8 @@ static void DisplayJoysticks() {
       for (int j = 0; j < joy.data.axes.count; ++j) {
         if (source && source->axes[j]) {
           char label[64];
-          std::snprintf(label, sizeof(label), "Axis[%d]", j);
+          wpi::format_to_n_c_str(label, sizeof(label), "Axis[{}]", j);
+
           ImGui::Selectable(label);
           source->axes[j]->EmitDrag();
           ImGui::SameLine();
@@ -1306,7 +1358,8 @@ static void DisplayJoysticks() {
       for (int j = 0; j < joy.data.povs.count; ++j) {
         if (source && source->povs[j]) {
           char label[64];
-          std::snprintf(label, sizeof(label), "POVs[%d]", j);
+          wpi::format_to_n_c_str(label, sizeof(label), "POVs[{}]", j);
+
           ImGui::Selectable(label);
           source->povs[j]->EmitDrag();
           ImGui::SameLine();
@@ -1374,7 +1427,6 @@ void DriverStationGui::GlobalInit() {
   gFMSModel = std::make_unique<FMSSimModel>();
 
   wpi::gui::AddEarlyExecute(DriverStationExecute);
-  wpi::gui::AddEarlyExecute([] { gFMSModel->Update(); });
 
   storageRoot.SetCustomApply([&storageRoot] {
     gpDisableDS = &storageRoot.GetBool("disable", false);
@@ -1406,7 +1458,9 @@ void DriverStationGui::GlobalInit() {
     int i = 0;
     for (auto&& joy : gKeyboardJoysticks) {
       char label[64];
-      std::snprintf(label, sizeof(label), "%s Settings", joy->GetName());
+      wpi::format_to_n_c_str(label, sizeof(label), "{} Settings",
+                             joy->GetName());
+
       if (auto win = dsManager->AddWindow(
               label, [j = joy.get()] { j->SettingsDisplay(); },
               glass::Window::kHide)) {
@@ -1418,8 +1472,13 @@ void DriverStationGui::GlobalInit() {
         win->SetDefaultSize(300, 560);
       }
     }
-    if (auto win =
-            dsManager->AddWindow("FMS", [] { DisplayFMS(gFMSModel.get()); })) {
+    if (auto win = dsManager->AddWindow("FMS", [] {
+          if (HALSIM_GetDriverStationDsAttached()) {
+            DisplayFMSReadOnly(gFMSModel.get());
+          } else {
+            DisplayFMS(gFMSModel.get(), false);
+          }
+        })) {
       win->DisableRenamePopup();
       win->SetFlags(ImGuiWindowFlags_AlwaysAutoResize);
       win->SetDefaultPos(5, 540);

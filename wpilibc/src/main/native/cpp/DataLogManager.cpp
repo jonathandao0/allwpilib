@@ -4,21 +4,30 @@
 
 #include "frc/DataLogManager.h"
 
+#include <frc/Errors.h>
+
 #include <algorithm>
 #include <ctime>
 #include <random>
+#include <string>
+#include <vector>
 
 #include <fmt/chrono.h>
-#include <fmt/format.h>
+#include <hal/FRCUsageReporting.h>
 #include <networktables/NetworkTableInstance.h>
 #include <wpi/DataLog.h>
+#include <wpi/DataLogBackgroundWriter.h>
+#include <wpi/FileLogger.h>
 #include <wpi/SafeThread.h>
 #include <wpi/StringExtras.h>
 #include <wpi/fs.h>
+#include <wpi/print.h>
 #include <wpi/timestamp.h>
 
 #include "frc/DriverStation.h"
 #include "frc/Filesystem.h"
+#include "frc/RobotBase.h"
+#include "frc/RobotController.h"
 
 using namespace frc;
 
@@ -26,18 +35,23 @@ namespace {
 
 struct Thread final : public wpi::SafeThread {
   Thread(std::string_view dir, std::string_view filename, double period);
+  ~Thread() override;
 
   void Main() final;
 
   void StartNTLog();
   void StopNTLog();
+  void StartConsoleLog();
+  void StopConsoleLog();
 
   std::string m_logDir;
   bool m_filenameOverride;
-  wpi::log::DataLog m_log;
+  wpi::log::DataLogBackgroundWriter m_log;
   bool m_ntLoggerEnabled = false;
   NT_DataLogger m_ntEntryLogger = 0;
   NT_ConnectionDataLogger m_ntConnLogger = 0;
+  bool m_consoleLoggerEnabled = false;
+  wpi::FileLogger m_consoleLogger;
   wpi::log::StringLogEntry m_messageLog;
 };
 
@@ -59,15 +73,30 @@ static std::string MakeLogDir(std::string_view dir) {
   }
 #ifdef __FRC_ROBORIO__
   // prefer a mounted USB drive if one is accessible
-  constexpr std::string_view usbDir{"/u"};
   std::error_code ec;
-  auto s = fs::status(usbDir, ec);
+  auto s = fs::status("/u", ec);
   if (!ec && fs::is_directory(s) &&
       (s.permissions() & fs::perms::others_write) != fs::perms::none) {
-    return std::string{usbDir};
+    fs::create_directory("/u/logs", ec);
+    return "/u/logs";
+    HAL_Report(HALUsageReporting::kResourceType_DataLogManager,
+               HALUsageReporting::kDataLogLocation_USB);
   }
+  if (RobotBase::GetRuntimeType() == kRoboRIO) {
+    FRC_ReportWarning(
+        "DataLogManager: Logging to RoboRIO 1 internal storage is "
+        "not recommended! Plug in a FAT32 formatted flash drive!");
+  }
+  fs::create_directory("/home/lvuser/logs", ec);
+  HAL_Report(HALUsageReporting::kResourceType_DataLogManager,
+             HALUsageReporting::kDataLogLocation_Onboard);
+  return "/home/lvuser/logs";
+#else
+  std::string logDir = filesystem::GetOperatingDirectory() + "/logs";
+  std::error_code ec;
+  fs::create_directory(logDir, ec);
+  return logDir;
 #endif
-  return frc::filesystem::GetOperatingDirectory();
 }
 
 static std::string MakeLogFilename(std::string_view filenameOverride) {
@@ -92,17 +121,29 @@ Thread::Thread(std::string_view dir, std::string_view filename, double period)
       m_log{dir, MakeLogFilename(filename), period},
       m_messageLog{m_log, "messages"} {
   StartNTLog();
+  StartConsoleLog();
+}
+
+Thread::~Thread() {
+  StopNTLog();
+  StopConsoleLog();
 }
 
 void Thread::Main() {
   // based on free disk space, scan for "old" FRC_*.wpilog files and remove
   {
-    uintmax_t freeSpace = fs::space(m_logDir).free;
+    std::error_code ec;
+    uintmax_t freeSpace;
+    auto freeSpaceInfo = fs::space(m_logDir, ec);
+    if (!ec) {
+      freeSpace = freeSpaceInfo.available;
+    } else {
+      freeSpace = UINTMAX_MAX;
+    }
     if (freeSpace < kFreeSpaceThreshold) {
       // Delete oldest FRC_*.wpilog files (ignore FRC_TBD_*.wpilog as we just
       // created one)
       std::vector<fs::directory_entry> entries;
-      std::error_code ec;
       for (auto&& entry : fs::directory_iterator{m_logDir, ec}) {
         auto stem = entry.path().stem().string();
         if (wpi::starts_with(stem, "FRC_") &&
@@ -124,15 +165,24 @@ void Thread::Main() {
         }
         auto size = entry.file_size();
         if (fs::remove(entry.path(), ec)) {
+          FRC_ReportWarning("DataLogManager: Deleted {}",
+                            entry.path().string());
           freeSpace += size;
           if (freeSpace >= kFreeSpaceThreshold) {
             break;
           }
         } else {
-          fmt::print(stderr, "DataLogManager: could not delete {}\n",
+          wpi::print(stderr, "DataLogManager: could not delete {}\n",
                      entry.path().string());
         }
       }
+    } else if (freeSpace < 2 * kFreeSpaceThreshold) {
+      FRC_ReportError(
+          warn::Warning,
+          "DataLogManager: Log storage device has {} MB of free space "
+          "remaining! Logs will get deleted below {} MB of free space. "
+          "Consider deleting logs off the storage device.",
+          freeSpace / 1000000, kFreeSpaceThreshold / 1000000);
     }
   }
 
@@ -182,11 +232,9 @@ void Thread::Main() {
         dsAttachCount = 0;
       }
       if (dsAttachCount > 50) {  // 1 second
-        std::time_t now = std::time(nullptr);
-        auto tm = std::gmtime(&now);
-        if (tm->tm_year > 100) {
-          // assume local clock is now synchronized to DS, so rename based on
-          // local time
+        if (RobotController::IsSystemTimeValid()) {
+          std::time_t now = std::time(nullptr);
+          auto tm = std::gmtime(&now);
           m_log.SetFilename(fmt::format("FRC_{:%Y%m%d_%H%M%S}.wpilog", *tm));
           dsRenamed = true;
         } else {
@@ -202,7 +250,7 @@ void Thread::Main() {
       } else {
         fmsAttachCount = 0;
       }
-      if (fmsAttachCount > 100) {  // 2 seconds
+      if (fmsAttachCount > 250) {  // 5 seconds
         // match info comes through TCP, so we need to double-check we've
         // actually received it
         auto matchType = DriverStation::GetMatchType();
@@ -238,7 +286,9 @@ void Thread::Main() {
     ++sysTimeCount;
     if (sysTimeCount >= 250) {
       sysTimeCount = 0;
-      sysTimeEntry.Append(wpi::GetSystemTime(), wpi::Now());
+      if (RobotController::IsSystemTimeValid()) {
+        sysTimeEntry.Append(wpi::GetSystemTime(), wpi::Now());
+      }
     }
   }
   DriverStation::RemoveRefreshedDataEventHandle(newDataEvent.GetHandle());
@@ -261,6 +311,20 @@ void Thread::StopNTLog() {
   }
 }
 
+void Thread::StartConsoleLog() {
+  if (!m_consoleLoggerEnabled && RobotBase::IsReal()) {
+    m_consoleLoggerEnabled = true;
+    m_consoleLogger = {"/home/lvuser/FRC_UserProgram.log", m_log, "console"};
+  }
+}
+
+void Thread::StopConsoleLog() {
+  if (m_consoleLoggerEnabled && RobotBase::IsReal()) {
+    m_consoleLoggerEnabled = false;
+    m_consoleLogger = {};
+  }
+}
+
 Instance::Instance(std::string_view dir, std::string_view filename,
                    double period) {
   // Delete all previously existing FRC_TBD_*.wpilog files. These only exist
@@ -272,7 +336,7 @@ Instance::Instance(std::string_view dir, std::string_view filename,
     if (wpi::starts_with(entry.path().stem().string(), "FRC_TBD_") &&
         entry.path().extension() == ".wpilog") {
       if (!fs::remove(entry, ec)) {
-        fmt::print(stderr, "DataLogManager: could not delete {}\n",
+        wpi::print(stderr, "DataLogManager: could not delete {}\n",
                    entry.path().string());
       }
     }
@@ -285,6 +349,9 @@ static Instance& GetInstance(std::string_view dir = "",
                              std::string_view filename = "",
                              double period = 0.25) {
   static Instance instance(dir, filename, period);
+  if (!instance.owner) {
+    instance.owner.Start(MakeLogDir(dir), filename, period);
+  }
   return instance;
 }
 
@@ -293,9 +360,15 @@ void DataLogManager::Start(std::string_view dir, std::string_view filename,
   GetInstance(dir, filename, period);
 }
 
+void DataLogManager::Stop() {
+  auto& inst = GetInstance();
+  inst.owner.GetThread()->m_log.Stop();
+  inst.owner.Join();
+}
+
 void DataLogManager::Log(std::string_view message) {
   GetInstance().owner.GetThread()->m_messageLog.Append(message);
-  fmt::print("{}\n", message);
+  wpi::print("{}\n", message);
 }
 
 wpi::log::DataLog& DataLogManager::GetLog() {
@@ -312,6 +385,16 @@ void DataLogManager::LogNetworkTables(bool enabled) {
       thr->StartNTLog();
     } else if (!enabled) {
       thr->StopNTLog();
+    }
+  }
+}
+
+void DataLogManager::LogConsoleOutput(bool enabled) {
+  if (auto thr = GetInstance().owner.GetThread()) {
+    if (enabled) {
+      thr->StartConsoleLog();
+    } else if (!enabled) {
+      thr->StopConsoleLog();
     }
   }
 }

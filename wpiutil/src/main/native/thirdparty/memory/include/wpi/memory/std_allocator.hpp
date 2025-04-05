@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_STD_ALLOCATOR_HPP_INCLUDED
 #define WPI_MEMORY_STD_ALLOCATOR_HPP_INCLUDED
@@ -44,8 +43,8 @@ namespace wpi
             auto propagate_on_container_copy_assignment(min_concept) -> std::true_type;
         } // namespace traits_detail
 
-        /// Controls the propagation of a \ref std_allocator for a certain \concept{concept_rawallocator,RawAllocator}.
-        /// \ingroup adapter
+        /// Controls the propagation of a \ref std_allocator for a certain RawAllocator.
+        /// \ingroup memory_adapter
         template <class RawAllocator>
         struct propagation_traits
         {
@@ -68,9 +67,9 @@ namespace wpi
             }
         };
 
-        /// Wraps a \concept{concept_rawallocator,RawAllocator} and makes it a "normal" \c Allocator.
+        /// Wraps a RawAllocator and makes it a "normal" \c Allocator.
         /// It allows using a \c RawAllocator anywhere a \c Allocator is required.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <typename T, class RawAllocator>
         class std_allocator :
 #if defined _MSC_VER && defined __clang__
@@ -134,7 +133,8 @@ namespace wpi
                 // MSVC seems to ignore access rights in decltype SFINAE below
                 // use this to prevent this constructor being chosen instead of move/copy for types inheriting from it
                 WPI_REQUIRES((!std::is_base_of<std_allocator, RawAlloc>::value))>
-            std_allocator(RawAlloc& alloc, WPI_SFINAE(alloc_reference(alloc))) noexcept
+            std_allocator(RawAlloc& alloc,
+                          WPI_SFINAE(alloc_reference(std::declval<RawAlloc&>()))) noexcept
             : alloc_reference(alloc)
             {
             }
@@ -149,7 +149,8 @@ namespace wpi
                 // MSVC seems to ignore access rights in decltype SFINAE below
                 // use this to prevent this constructor being chosen instead of move/copy for types inheriting from it
                 WPI_REQUIRES((!std::is_base_of<std_allocator, RawAlloc>::value))>
-            std_allocator(const RawAlloc& alloc, WPI_SFINAE(alloc_reference(alloc))) noexcept
+            std_allocator(const RawAlloc& alloc, WPI_SFINAE(alloc_reference(
+                                                     std::declval<const RawAlloc&>()))) noexcept
             : alloc_reference(alloc)
             {
             }
@@ -185,7 +186,7 @@ namespace wpi
             }
 
             //=== allocation/deallocation ===//
-            /// \effects Allocates memory using the underlying \concept{concept_rawallocator,RawAllocator}.
+            /// \effects Allocates memory using the underlying RawAllocator.
             /// If \c n is \c 1, it will call <tt>allocate_node(sizeof(T), alignof(T))</tt>,
             /// otherwise <tt>allocate_array(n, sizeof(T), alignof(T))</tt>.
             /// \returns A pointer to a memory block suitable for \c n objects of type \c T.
@@ -195,7 +196,7 @@ namespace wpi
                 return static_cast<pointer>(allocate_impl(is_any{}, n));
             }
 
-            /// \effects Deallcoates memory using the underlying \concept{concept_rawallocator,RawAllocator}.
+            /// \effects Deallcoates memory using the underlying RawAllocator.
             /// It will forward to the deallocation function in the same way as in \ref allocate().
             /// \requires The pointer must come from a previous call to \ref allocate() with the same \c n on this object or any copy of it.
             void deallocate(pointer p, size_type n) noexcept
@@ -340,10 +341,10 @@ namespace wpi
             return {detail::forward<RawAllocator>(allocator)};
         }
 
-        /// An alias template for \ref std_allocator using a type-erased \concept{concept_rawallocator,RawAllocator}.
+        /// An alias template for \ref std_allocator using a type-erased RawAllocator.
         /// This is the same as using a \ref std_allocator with the tag type \ref any_allocator.
         /// The implementation is optimized to call fewer virtual functions.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <typename T>
         WPI_ALIAS_TEMPLATE(any_std_allocator, std_allocator<T, any_allocator>);
 

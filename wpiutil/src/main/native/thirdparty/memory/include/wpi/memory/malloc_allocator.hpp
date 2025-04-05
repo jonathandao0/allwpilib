@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_MALLOC_ALLOCATOR_HPP_INCLUDED
 #define WPI_MEMORY_MALLOC_ALLOCATOR_HPP_INCLUDED
@@ -55,9 +54,9 @@ namespace wpi
                                                        malloc_alloator_leak_checker)
         } // namespace detail
 
-        /// A stateless \concept{concept_rawallocator,RawAllocator} that allocates memory using <tt>std::malloc()</tt>.
+        /// A stateless RawAllocator that allocates memory using <tt>std::malloc()</tt>.
         /// It throws \ref out_of_memory when the allocation fails.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         using malloc_allocator =
             WPI_IMPL_DEFINED(detail::lowlevel_allocator<detail::malloc_allocator_impl>);
 

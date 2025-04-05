@@ -13,4 +13,5 @@ target_include_directories(halsim_ws_client PRIVATE src/main/native/include)
 
 set_property(TARGET halsim_ws_client PROPERTY FOLDER "libraries")
 
-install(TARGETS halsim_ws_client EXPORT halsim_ws_client DESTINATION "${main_lib_dest}")
+install(TARGETS halsim_ws_client EXPORT halsim_ws_client)
+export(TARGETS halsim_ws_client FILE halsim_ws_client.cmake NAMESPACE halsim_ws_client::)

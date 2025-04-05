@@ -9,6 +9,8 @@
 #include <fmt/format.h>
 #include <wpi/SymbolExports.h>
 
+#include "units/time.h"
+
 namespace wpi::math {
 
 enum class MathUsageId {
@@ -22,6 +24,8 @@ enum class MathUsageId {
   kOdometry_MecanumDrive,
   kController_PIDController2,
   kController_ProfiledPIDController,
+  kController_BangBangController,
+  kTrajectory_PathWeaver,
 };
 
 class WPILIB_DLLEXPORT MathShared {
@@ -31,6 +35,7 @@ class WPILIB_DLLEXPORT MathShared {
   virtual void ReportWarningV(fmt::string_view format,
                               fmt::format_args args) = 0;
   virtual void ReportUsage(MathUsageId id, int count) = 0;
+  virtual units::second_t GetTimestamp() = 0;
 
   template <typename S, typename... Args>
   inline void ReportError(const S& format, Args&&... args) {
@@ -69,6 +74,10 @@ class WPILIB_DLLEXPORT MathSharedStore {
 
   static void ReportUsage(MathUsageId id, int count) {
     GetMathShared().ReportUsage(id, count);
+  }
+
+  static units::second_t GetTimestamp() {
+    return GetMathShared().GetTimestamp();
   }
 };
 

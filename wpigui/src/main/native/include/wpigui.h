@@ -128,7 +128,7 @@ bool AddIcon(const unsigned char* data, int len);
 
 inline bool AddIcon(std::string_view data) {
   return AddIcon(reinterpret_cast<const unsigned char*>(data.data()),
-                 data.size());
+                 static_cast<int>(data.size()));
 }
 
 /**
@@ -145,6 +145,21 @@ int AddFont(
         makeFont);
 
 /**
+ * Adds a default font option.  This is the font used for menus, etc.  If the
+ * font is selected by the user as the default font, the passed function is
+ * called during initialization as many times as necessary to create a range of
+ * sizes.  If not selected, the font is not loaded (to always load a font,
+ * use AddFont() instead).
+ *
+ * @param name font name
+ * @param makeFont font creation / loader function
+ */
+void AddDefaultFont(
+    const char* name,
+    std::function<ImFont*(ImGuiIO& io, float size, const ImFontConfig* cfg)>
+        makeFont);
+
+/**
  * Gets a font added with AddFont() with the appropriate font size for
  * the current scaling of the GUI.
  *
@@ -153,7 +168,7 @@ int AddFont(
  */
 ImFont* GetFont(int font);
 
-enum Style { kStyleClassic = 0, kStyleDark, kStyleLight };
+enum Style { kStyleClassic = 0, kStyleDark, kStyleLight, kStyleDeepDark };
 
 /**
  * Sets the ImGui style.  Using this function makes this setting persistent.
@@ -161,6 +176,13 @@ enum Style { kStyleClassic = 0, kStyleDark, kStyleLight };
  * @param style Style
  */
 void SetStyle(Style style);
+
+/**
+ * Sets the FPS limit.  Using this function makes this setting persistent.
+ *
+ * @param fps FPS (0=vsync)
+ */
+void SetFPS(int fps);
 
 /**
  * Sets the clear (background) color.

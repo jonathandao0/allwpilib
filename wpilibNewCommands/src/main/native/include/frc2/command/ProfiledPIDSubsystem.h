@@ -17,9 +17,11 @@ namespace frc2 {
  * This class is provided by the NewCommands VendorDep
  *
  * @see ProfiledPIDController
+ * @deprecated Use a ProfiledPIDController instead
  */
 template <class Distance>
-class ProfiledPIDSubsystem : public SubsystemBase {
+class [[deprecated("Use a ProfiledPIDController instead")]] ProfiledPIDSubsystem
+    : public SubsystemBase {
   using Distance_t = units::unit_t<Distance>;
   using Velocity =
       units::compound_unit<Distance, units::inverse<units::seconds>>;
@@ -91,7 +93,10 @@ class ProfiledPIDSubsystem : public SubsystemBase {
   frc::ProfiledPIDController<Distance>& GetController() { return m_controller; }
 
  protected:
+  /// Profiled PID controller.
   frc::ProfiledPIDController<Distance> m_controller;
+
+  /// Whether the profiled PID controller output is enabled.
   bool m_enabled{false};
 
   /**

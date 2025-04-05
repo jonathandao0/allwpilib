@@ -29,10 +29,19 @@ public class AprilTagPoseEstimator {
       this.cy = cy;
     }
 
+    /** Tag size, in meters. */
     public double tagSize;
+
+    /** Camera horizontal focal length, in pixels. */
     public double fx;
+
+    /** Camera vertical focal length, in pixels. */
     public double fy;
+
+    /** Camera horizontal focal center, in pixels. */
     public double cx;
+
+    /** Camera vertical focal center, in pixels. */
     public double cy;
 
     @Override
@@ -46,12 +55,8 @@ public class AprilTagPoseEstimator {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof Config)) {
-        return false;
-      }
-
-      Config other = (Config) obj;
-      return tagSize == other.tagSize
+      return obj instanceof Config other
+          && tagSize == other.tagSize
           && fx == other.fx
           && fy == other.fy
           && cx == other.cx

@@ -4,21 +4,25 @@
 
 package edu.wpi.first.math.filter;
 
-import edu.wpi.first.util.WPIUtilJNI;
+import edu.wpi.first.math.MathSharedStore;
 
 /**
  * A simple debounce filter for boolean streams. Requires that the boolean change value from
  * baseline for a specified period of time before the filtered value changes.
  */
 public class Debouncer {
+  /** Type of debouncing to perform. */
   public enum DebounceType {
+    /** Rising edge. */
     kRising,
+    /** Falling edge. */
     kFalling,
+    /** Both rising and falling edges. */
     kBoth
   }
 
-  private final double m_debounceTimeSeconds;
-  private final DebounceType m_debounceType;
+  private double m_debounceTimeSeconds;
+  private DebounceType m_debounceType;
   private boolean m_baseline;
 
   private double m_prevTimeSeconds;
@@ -36,17 +40,11 @@ public class Debouncer {
 
     resetTimer();
 
-    switch (m_debounceType) {
-      case kBoth: // fall-through
-      case kRising:
-        m_baseline = false;
-        break;
-      case kFalling:
-        m_baseline = true;
-        break;
-      default:
-        throw new IllegalArgumentException("Invalid debounce type!");
-    }
+    m_baseline =
+        switch (m_debounceType) {
+          case kBoth, kRising -> false;
+          case kFalling -> true;
+        };
   }
 
   /**
@@ -60,11 +58,11 @@ public class Debouncer {
   }
 
   private void resetTimer() {
-    m_prevTimeSeconds = WPIUtilJNI.now() * 1e-6;
+    m_prevTimeSeconds = MathSharedStore.getTimestamp();
   }
 
   private boolean hasElapsed() {
-    return (WPIUtilJNI.now() * 1e-6) - m_prevTimeSeconds >= m_debounceTimeSeconds;
+    return MathSharedStore.getTimestamp() - m_prevTimeSeconds >= m_debounceTimeSeconds;
   }
 
   /**
@@ -87,5 +85,43 @@ public class Debouncer {
     } else {
       return m_baseline;
     }
+  }
+
+  /**
+   * Sets the time to debounce.
+   *
+   * @param time The number of seconds the value must change from baseline for the filtered value to
+   *     change.
+   */
+  public void setDebounceTime(double time) {
+    m_debounceTimeSeconds = time;
+  }
+
+  /**
+   * Gets the time to debounce.
+   *
+   * @return The number of seconds the value must change from baseline for the filtered value to
+   *     change.
+   */
+  public double getDebounceTime() {
+    return m_debounceTimeSeconds;
+  }
+
+  /**
+   * Sets the debounce type.
+   *
+   * @param type Which type of state change the debouncing will be performed on.
+   */
+  public void setDebounceType(DebounceType type) {
+    m_debounceType = type;
+  }
+
+  /**
+   * Gets the debounce type.
+   *
+   * @return Which type of state change the debouncing will be performed on.
+   */
+  public DebounceType getDebounceType() {
+    return m_debounceType;
   }
 }

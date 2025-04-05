@@ -1,12 +1,11 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_CONTAINER_HPP_INCLUDED
 #define WPI_MEMORY_CONTAINER_HPP_INCLUDED
 
 /// \file
-/// Aliasas for STL containers using a certain \concept{concept_rawallocator,RawAllocator}.
+/// Aliasas for STL containers using a certain RawAllocator.
 /// \note Only available on a hosted implementation.
 
 #include "config.hpp"
@@ -37,11 +36,11 @@ namespace wpi
 {
     namespace memory
     {
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         /// @{
 
         /// Alias template for an STL container that uses a certain
-        /// \concept{concept_rawallocator,RawAllocator}. It is just a shorthand for a passing in the \c
+        /// RawAllocator. It is just a shorthand for a passing in the \c
         /// RawAllocator wrapped in a \ref wpi::memory::std_allocator.
         template <typename T, class RawAllocator>
         WPI_ALIAS_TEMPLATE(vector, std::vector<T, std_allocator<T, RawAllocator>>);
@@ -213,8 +212,8 @@ namespace wpi
 
         /// @{
         /// Convenience function to create a container adapter using a certain
-        /// \concept{concept_rawallocator,RawAllocator}. \returns An empty adapter with an
-        /// implementation container using a reference to a given allocator. \ingroup adapter
+        /// RawAllocator. \returns An empty adapter with an
+        /// implementation container using a reference to a given allocator. \ingroup memory_adapter
         template <typename T, class RawAllocator, class Container = deque<T, RawAllocator>>
         std::stack<T, Container> make_stack(RawAllocator& allocator)
         {
@@ -272,12 +271,13 @@ namespace wpi
 #endif
 
 #else
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         /// @{
 
         /// Contains the node size of a node based STL container with a specific type.
-        /// These classes are auto-generated and only available if the tools are build and without
-        /// cross-compiling.
+        ///
+        /// This trait is auto-generated and may not be available depending on the build configuration,
+        /// especially when doing cross compilation.
         template <typename T>
         struct forward_list_node_size : std::integral_constant<std::size_t, implementation_defined>
         {
@@ -314,25 +314,30 @@ namespace wpi
         {
         };
 
-        /// \copydoc forward_list_node_size
+        /// Contains the node size of a node based STL container with a specific type.
+        ///
+        /// This trait is auto-generated and may not be available depending on the build configuration,
+        /// especially when doing cross compilation.
+        ///
+        /// \notes `T` is always the `value_type` of the container, e.g. `std::pair<const Key, Value>`.
         template <typename T>
         struct map_node_size : std::integral_constant<std::size_t, implementation_defined>
         {
         };
 
-        /// \copydoc forward_list_node_size
+        /// \copydoc map_node_size
         template <typename T>
         struct multimap_node_size : std::integral_constant<std::size_t, implementation_defined>
         {
         };
 
-        /// \copydoc forward_list_node_size
+        /// \copydoc map_node_size
         template <typename T>
         struct unordered_map_node_size : std::integral_constant<std::size_t, implementation_defined>
         {
         };
 
-        /// \copydoc forward_list_node_size
+        /// \copydoc map_node_size
         template <typename T>
         struct unordered_multimap_node_size
         : std::integral_constant<std::size_t, implementation_defined>
@@ -350,7 +355,7 @@ namespace wpi
 #if !defined(WPI_MEMORY_NO_NODE_SIZE)
         /// The node size required by \ref allocate_shared.
         /// \note This is similar to \ref shared_ptr_node_size but takes a
-        /// \concept{concept_rawallocator,RawAllocator} instead.
+        /// RawAllocator instead.
         template <typename T, class RawAllocator>
         struct allocate_shared_node_size : shared_ptr_node_size<T, std_allocator<T, RawAllocator>>
         {

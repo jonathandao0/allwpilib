@@ -7,18 +7,26 @@
 #include <stdint.h>
 
 #include <cassert>
+#include <concepts>
 #include <initializer_list>
 #include <memory>
 #include <span>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "ntcore_c.h"
 
 namespace nt {
+
+// Forward declare here to avoid circular dependency on ntcore_cpp.h
+int64_t Now();
+
+#if __GNUC__ >= 13
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 
 /**
  * A network table entry value.
@@ -28,9 +36,41 @@ class Value final {
   struct private_init {};
 
  public:
-  Value();
-  Value(NT_Type type, int64_t time, const private_init&);
-  Value(NT_Type type, int64_t time, int64_t serverTime, const private_init&);
+  Value() {
+    m_val.type = NT_UNASSIGNED;
+    m_val.last_change = 0;
+    m_val.server_time = 0;
+  }
+
+  Value(NT_Type type, size_t size, int64_t time, const private_init&)
+      : Value{type, size, time == 0 ? Now() : time, 1, private_init{}} {}
+
+  Value(NT_Type type, size_t size, int64_t time, int64_t serverTime,
+        const private_init&)
+      : m_size{size} {
+    m_val.type = type;
+    m_val.last_change = time;
+    m_val.server_time = serverTime;
+    switch (type) {
+      case NT_BOOLEAN_ARRAY:
+        m_val.data.arr_boolean.arr = nullptr;
+        break;
+      case NT_INTEGER_ARRAY:
+        m_val.data.arr_int.arr = nullptr;
+        break;
+      case NT_FLOAT_ARRAY:
+        m_val.data.arr_float.arr = nullptr;
+        break;
+      case NT_DOUBLE_ARRAY:
+        m_val.data.arr_double.arr = nullptr;
+        break;
+      case NT_STRING_ARRAY:
+        m_val.data.arr_string.arr = nullptr;
+        break;
+      default:
+        break;
+    }
+  }
 
   explicit operator bool() const { return m_val.type != NT_UNASSIGNED; }
 
@@ -61,6 +101,15 @@ class Value final {
    * @return The time, in the units returned by nt::Now().
    */
   int64_t time() const { return m_val.last_change; }
+
+  /**
+   * Get the approximate in-memory size of the value in bytes. This is zero for
+   * values that do not require additional memory beyond the memory of the Value
+   * itself.
+   *
+   * @return The size in bytes.
+   */
+  size_t size() const { return m_size; }
 
   /**
    * Set the local creation time of the value.
@@ -305,7 +354,7 @@ class Value final {
    * @return The entry value
    */
   static Value MakeBoolean(bool value, int64_t time = 0) {
-    Value val{NT_BOOLEAN, time, private_init{}};
+    Value val{NT_BOOLEAN, 0, time, private_init{}};
     val.m_val.data.v_boolean = value;
     return val;
   }
@@ -319,7 +368,7 @@ class Value final {
    * @return The entry value
    */
   static Value MakeInteger(int64_t value, int64_t time = 0) {
-    Value val{NT_INTEGER, time, private_init{}};
+    Value val{NT_INTEGER, 0, time, private_init{}};
     val.m_val.data.v_int = value;
     return val;
   }
@@ -333,7 +382,7 @@ class Value final {
    * @return The entry value
    */
   static Value MakeFloat(float value, int64_t time = 0) {
-    Value val{NT_FLOAT, time, private_init{}};
+    Value val{NT_FLOAT, 0, time, private_init{}};
     val.m_val.data.v_float = value;
     return val;
   }
@@ -347,7 +396,7 @@ class Value final {
    * @return The entry value
    */
   static Value MakeDouble(double value, int64_t time = 0) {
-    Value val{NT_DOUBLE, time, private_init{}};
+    Value val{NT_DOUBLE, 0, time, private_init{}};
     val.m_val.data.v_double = value;
     return val;
   }
@@ -361,8 +410,8 @@ class Value final {
    * @return The entry value
    */
   static Value MakeString(std::string_view value, int64_t time = 0) {
-    Value val{NT_STRING, time, private_init{}};
     auto data = std::make_shared<std::string>(value);
+    Value val{NT_STRING, data->capacity(), time, private_init{}};
     val.m_val.data.v_string.str = const_cast<char*>(data->c_str());
     val.m_val.data.v_string.len = data->size();
     val.m_storage = std::move(data);
@@ -377,11 +426,10 @@ class Value final {
    *             time)
    * @return The entry value
    */
-  template <typename T,
-            typename std::enable_if<std::is_same<T, std::string>::value>::type>
+  template <std::same_as<std::string> T>
   static Value MakeString(T&& value, int64_t time = 0) {
-    Value val{NT_STRING, time, private_init{}};
-    auto data = std::make_shared<std::string>(std::forward(value));
+    auto data = std::make_shared<std::string>(std::forward<T>(value));
+    Value val{NT_STRING, data->capacity(), time, private_init{}};
     val.m_val.data.v_string.str = const_cast<char*>(data->c_str());
     val.m_val.data.v_string.len = data->size();
     val.m_storage = std::move(data);
@@ -397,9 +445,9 @@ class Value final {
    * @return The entry value
    */
   static Value MakeRaw(std::span<const uint8_t> value, int64_t time = 0) {
-    Value val{NT_RAW, time, private_init{}};
     auto data =
         std::make_shared<std::vector<uint8_t>>(value.begin(), value.end());
+    Value val{NT_RAW, data->capacity(), time, private_init{}};
     val.m_val.data.v_raw.data = const_cast<uint8_t*>(data->data());
     val.m_val.data.v_raw.size = data->size();
     val.m_storage = std::move(data);
@@ -414,11 +462,10 @@ class Value final {
    *             time)
    * @return The entry value
    */
-  template <typename T, typename std::enable_if<
-                            std::is_same<T, std::vector<uint8_t>>::value>::type>
+  template <std::same_as<std::vector<uint8_t>> T>
   static Value MakeRaw(T&& value, int64_t time = 0) {
-    Value val{NT_RAW, time, private_init{}};
-    auto data = std::make_shared<std::vector<uint8_t>>(std::forward(value));
+    auto data = std::make_shared<std::vector<uint8_t>>(std::forward<T>(value));
+    Value val{NT_RAW, data->capacity(), time, private_init{}};
     val.m_val.data.v_raw.data = const_cast<uint8_t*>(data->data());
     val.m_val.data.v_raw.size = data->size();
     val.m_storage = std::move(data);
@@ -631,9 +678,14 @@ class Value final {
   friend bool operator==(const Value& lhs, const Value& rhs);
 
  private:
-  NT_Value m_val;
+  NT_Value m_val = {};
   std::shared_ptr<void> m_storage;
+  size_t m_size = 0;
 };
+
+#if __GNUC__ >= 13
+#pragma GCC diagnostic pop
+#endif
 
 bool operator==(const Value& lhs, const Value& rhs);
 

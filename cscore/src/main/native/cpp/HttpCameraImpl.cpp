@@ -4,12 +4,17 @@
 
 #include "HttpCameraImpl.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <fmt/format.h>
 #include <wpi/MemAlloc.h>
 #include <wpi/StringExtras.h>
 #include <wpi/timestamp.h>
 #include <wpinet/TCPConnector.h>
 
-#include "Handle.h"
 #include "Instance.h"
 #include "JpegUtil.h"
 #include "Log.h"
@@ -193,7 +198,8 @@ wpi::HttpConnection* HttpCameraImpl::DeviceStreamConnect(
   auto [mediaType, contentType] = wpi::split(conn->contentType.str(), ';');
   mediaType = wpi::trim(mediaType);
   if (mediaType != "multipart/x-mixed-replace") {
-    SWARNING("\"{}\": unrecognized Content-Type \"{}\"", req.host, mediaType);
+    SWARNING("\"{}\": unrecognized Content-Type \"{}\"", req.host.str(),
+             mediaType);
     std::scoped_lock lock(m_mutex);
     m_streamConn = nullptr;
     return nullptr;
@@ -216,7 +222,8 @@ wpi::HttpConnection* HttpCameraImpl::DeviceStreamConnect(
   }
 
   if (boundary.empty()) {
-    SWARNING("\"{}\": empty multi-part boundary or no Content-Type", req.host);
+    SWARNING("\"{}\": empty multi-part boundary or no Content-Type",
+             req.host.str());
     std::scoped_lock lock(m_mutex);
     m_streamConn = nullptr;
     return nullptr;
@@ -281,19 +288,34 @@ bool HttpCameraImpl::DeviceStreamFrame(wpi::raw_istream& is,
   // Check the content type (if present)
   if (!contentTypeBuf.str().empty() &&
       !wpi::starts_with(contentTypeBuf, "image/jpeg")) {
-    auto errMsg =
-        fmt::format("received unknown Content-Type \"{}\"", contentTypeBuf);
+    auto errMsg = fmt::format("received unknown Content-Type \"{}\"",
+                              contentTypeBuf.str());
     SWARNING("{}", errMsg);
     PutError(errMsg, wpi::Now());
     return false;
   }
 
-  unsigned int contentLength = 0;
+  int width, height;
   if (auto v = wpi::parse_integer<unsigned int>(contentLengthBuf, 10)) {
-    contentLength = v.value();
+    // We know how big it is!  Just get a frame of the right size and read
+    // the data directly into it.
+    unsigned int contentLength = v.value();
+    auto image =
+        AllocImage(VideoMode::PixelFormat::kMJPEG, 0, 0, contentLength);
+    is.read(image->data(), contentLength);
+    if (!m_active || is.has_error()) {
+      return false;
+    }
+    if (!GetJpegSize(image->str(), &width, &height)) {
+      SWARNING("did not receive a JPEG image");
+      PutError("did not receive a JPEG image", wpi::Now());
+      return false;
+    }
+    image->width = width;
+    image->height = height;
+    PutFrame(std::move(image), wpi::Now());
   } else {
     // Ugh, no Content-Length?  Read the blocks of the JPEG file.
-    int width, height;
     if (!ReadJpeg(is, imageBuf, &width, &height)) {
       SWARNING("did not receive a JPEG image");
       PutError("did not receive a JPEG image", wpi::Now());
@@ -301,27 +323,18 @@ bool HttpCameraImpl::DeviceStreamFrame(wpi::raw_istream& is,
     }
     PutFrame(VideoMode::PixelFormat::kMJPEG, width, height, imageBuf,
              wpi::Now());
-    ++m_frameCount;
-    return true;
   }
 
-  // We know how big it is!  Just get a frame of the right size and read
-  // the data directly into it.
-  auto image = AllocImage(VideoMode::PixelFormat::kMJPEG, 0, 0, contentLength);
-  is.read(image->data(), contentLength);
-  if (!m_active || is.has_error()) {
-    return false;
-  }
-  int width, height;
-  if (!GetJpegSize(image->str(), &width, &height)) {
-    SWARNING("did not receive a JPEG image");
-    PutError("did not receive a JPEG image", wpi::Now());
-    return false;
-  }
-  image->width = width;
-  image->height = height;
-  PutFrame(std::move(image), wpi::Now());
   ++m_frameCount;
+
+  // update video mode if not set
+  std::scoped_lock lock(m_mutex);
+  if (m_mode.pixelFormat != VideoMode::PixelFormat::kMJPEG ||
+      m_mode.width == 0 || m_mode.height == 0) {
+    m_mode.pixelFormat = VideoMode::PixelFormat::kMJPEG;
+    m_mode.width = width;
+    m_mode.height = height;
+  }
   return true;
 }
 
@@ -452,11 +465,7 @@ std::unique_ptr<PropertyImpl> HttpCameraImpl::CreateEmptyProperty(
 }
 
 bool HttpCameraImpl::CacheProperties(CS_Status* status) const {
-#ifdef _MSC_VER  // work around VS2019 16.4.0 bug
-  std::scoped_lock<wpi::mutex> lock(m_mutex);
-#else
   std::scoped_lock lock(m_mutex);
-#endif
 
   // Pretty typical set of video modes
   m_videoModes.clear();
@@ -516,6 +525,14 @@ bool HttpCameraImpl::SetVideoMode(const VideoMode& mode, CS_Status* status) {
   }
   std::scoped_lock lock(m_mutex);
   m_mode = mode;
+  m_streamSettings.clear();
+  if (mode.width != 0 && mode.height != 0) {
+    m_streamSettings["resolution"] =
+        fmt::format("{}x{}", mode.width, mode.height);
+  }
+  if (mode.fps != 0) {
+    m_streamSettings["fps"] = fmt::format("{}", mode.fps);
+  }
   m_streamSettingsUpdated = true;
   return true;
 }
@@ -632,55 +649,47 @@ std::vector<std::string> GetHttpCameraUrls(CS_Source source,
 
 extern "C" {
 
-CS_Source CS_CreateHttpCamera(const char* name, const char* url,
+CS_Source CS_CreateHttpCamera(const struct WPI_String* name,
+                              const struct WPI_String* url,
                               CS_HttpCameraKind kind, CS_Status* status) {
-  return cs::CreateHttpCamera(name, url, kind, status);
+  return cs::CreateHttpCamera(wpi::to_string_view(name),
+                              wpi::to_string_view(url), kind, status);
 }
 
-CS_Source CS_CreateHttpCameraMulti(const char* name, const char** urls,
-                                   int count, CS_HttpCameraKind kind,
-                                   CS_Status* status) {
+CS_Source CS_CreateHttpCameraMulti(const struct WPI_String* name,
+                                   const struct WPI_String* urls, int count,
+                                   CS_HttpCameraKind kind, CS_Status* status) {
   wpi::SmallVector<std::string, 4> vec;
   vec.reserve(count);
   for (int i = 0; i < count; ++i) {
-    vec.push_back(urls[i]);
+    vec.emplace_back(wpi::to_string_view(&urls[i]));
   }
-  return cs::CreateHttpCamera(name, vec, kind, status);
+  return cs::CreateHttpCamera(wpi::to_string_view(name), vec, kind, status);
 }
 
 CS_HttpCameraKind CS_GetHttpCameraKind(CS_Source source, CS_Status* status) {
   return cs::GetHttpCameraKind(source, status);
 }
 
-void CS_SetHttpCameraUrls(CS_Source source, const char** urls, int count,
-                          CS_Status* status) {
+void CS_SetHttpCameraUrls(CS_Source source, const struct WPI_String* urls,
+                          int count, CS_Status* status) {
   wpi::SmallVector<std::string, 4> vec;
   vec.reserve(count);
   for (int i = 0; i < count; ++i) {
-    vec.push_back(urls[i]);
+    vec.emplace_back(wpi::to_string_view(&urls[i]));
   }
   cs::SetHttpCameraUrls(source, vec, status);
 }
 
-char** CS_GetHttpCameraUrls(CS_Source source, int* count, CS_Status* status) {
+WPI_String* CS_GetHttpCameraUrls(CS_Source source, int* count,
+                                 CS_Status* status) {
   auto urls = cs::GetHttpCameraUrls(source, status);
-  char** out =
-      static_cast<char**>(wpi::safe_malloc(urls.size() * sizeof(char*)));
+  WPI_String* out = WPI_AllocateStringArray(urls.size());
   *count = urls.size();
   for (size_t i = 0; i < urls.size(); ++i) {
-    out[i] = cs::ConvertToC(urls[i]);
+    cs::ConvertToC(&out[i], urls[i]);
   }
   return out;
-}
-
-void CS_FreeHttpCameraUrls(char** urls, int count) {
-  if (!urls) {
-    return;
-  }
-  for (int i = 0; i < count; ++i) {
-    std::free(urls[i]);
-  }
-  std::free(urls);
 }
 
 }  // extern "C"

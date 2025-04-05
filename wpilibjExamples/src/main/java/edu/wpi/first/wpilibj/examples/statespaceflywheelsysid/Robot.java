@@ -16,7 +16,6 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.motorcontrol.MotorController;
 import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
 
 /**
@@ -72,13 +71,12 @@ public class Robot extends TimedRobot {
   // An encoder set up to measure flywheel velocity in radians per second.
   private final Encoder m_encoder = new Encoder(kEncoderAChannel, kEncoderBChannel);
 
-  private final MotorController m_motor = new PWMSparkMax(kMotorPort);
+  private final PWMSparkMax m_motor = new PWMSparkMax(kMotorPort);
 
   // A joystick to read the trigger from.
   private final Joystick m_joystick = new Joystick(kJoystickPort);
 
-  @Override
-  public void robotInit() {
+  public Robot() {
     // We go 2 pi radians per 4096 clicks.
     m_encoder.setDistancePerPulse(2.0 * Math.PI / 4096.0);
   }

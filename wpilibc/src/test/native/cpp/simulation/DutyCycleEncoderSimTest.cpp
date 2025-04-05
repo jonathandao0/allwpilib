@@ -4,32 +4,34 @@
 
 #include "frc/simulation/DutyCycleEncoderSim.h"  // NOLINT(build/include_order)
 
+#include <gtest/gtest.h>
 #include <hal/HAL.h>
 
 #include "callback_helpers/TestCallbackHelpers.h"
 #include "frc/DutyCycleEncoder.h"
-#include "gtest/gtest.h"
 
 namespace frc::sim {
 
 TEST(DutyCycleEncoderSimTest, Set) {
   HAL_Initialize(500, 0);
 
-  DutyCycleEncoder enc{0};
+  DutyCycleEncoder enc{0, 10, 0};
   DutyCycleEncoderSim sim(enc);
 
-  constexpr units::turn_t kTestValue{5.67};
+  constexpr double kTestValue{5.67};
   sim.Set(kTestValue);
   EXPECT_EQ(kTestValue, enc.Get());
 }
 
-TEST(DutyCycleEncoderSimTest, SetDistance) {
+TEST(DutyCycleEncoderSimTest, SetIsConnected) {
   HAL_Initialize(500, 0);
 
   DutyCycleEncoder enc{0};
   DutyCycleEncoderSim sim(enc);
-  sim.SetDistance(19.1);
-  EXPECT_EQ(19.1, enc.GetDistance());
+  sim.SetConnected(true);
+  EXPECT_TRUE(enc.IsConnected());
+  sim.SetConnected(false);
+  EXPECT_FALSE(enc.IsConnected());
 }
 
 }  // namespace frc::sim

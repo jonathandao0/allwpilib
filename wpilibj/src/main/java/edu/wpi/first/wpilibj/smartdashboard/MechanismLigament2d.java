@@ -9,6 +9,7 @@ import edu.wpi.first.networktables.DoubleEntry;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.StringEntry;
 import edu.wpi.first.networktables.StringPublisher;
+import edu.wpi.first.networktables.StringTopic;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 
 /**
@@ -27,6 +28,8 @@ public class MechanismLigament2d extends MechanismObject2d {
   private DoubleEntry m_lengthEntry;
   private double m_weight;
   private DoubleEntry m_weightEntry;
+
+  private static String kSmartDashboardType = "line";
 
   /**
    * Create a new ligament.
@@ -82,7 +85,7 @@ public class MechanismLigament2d extends MechanismObject2d {
    *
    * @param degrees the angle in degrees
    */
-  public synchronized void setAngle(double degrees) {
+  public final synchronized void setAngle(double degrees) {
     m_angle = degrees;
     if (m_angleEntry != null) {
       m_angleEntry.set(degrees);
@@ -115,7 +118,7 @@ public class MechanismLigament2d extends MechanismObject2d {
    *
    * @param length the line length
    */
-  public synchronized void setLength(double length) {
+  public final synchronized void setLength(double length) {
     m_length = length;
     if (m_lengthEntry != null) {
       m_lengthEntry.set(length);
@@ -139,7 +142,7 @@ public class MechanismLigament2d extends MechanismObject2d {
    *
    * @param color the color of the line
    */
-  public synchronized void setColor(Color8Bit color) {
+  public final synchronized void setColor(Color8Bit color) {
     m_color = String.format("#%02X%02X%02X", color.red, color.green, color.blue);
     if (m_colorEntry != null) {
       m_colorEntry.set(m_color);
@@ -177,7 +180,7 @@ public class MechanismLigament2d extends MechanismObject2d {
    *
    * @param weight the line thickness
    */
-  public synchronized void setLineWeight(double weight) {
+  public final synchronized void setLineWeight(double weight) {
     m_weight = weight;
     if (m_weightEntry != null) {
       m_weightEntry.set(weight);
@@ -201,8 +204,12 @@ public class MechanismLigament2d extends MechanismObject2d {
     if (m_typePub != null) {
       m_typePub.close();
     }
-    m_typePub = table.getStringTopic(".type").publish();
-    m_typePub.set("line");
+    m_typePub =
+        table
+            .getStringTopic(".type")
+            .publishEx(
+                StringTopic.kTypeString, "{\"SmartDashboard\":\"" + kSmartDashboardType + "\"}");
+    m_typePub.set(kSmartDashboardType);
 
     if (m_angleEntry != null) {
       m_angleEntry.close();

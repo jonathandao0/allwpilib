@@ -8,25 +8,28 @@
 
 #include <wpi/SymbolExports.h>
 
-#include "frc/apriltag/AprilTagFieldLayout.h"
-
 namespace frc {
 
+/**
+ * Loadable AprilTag field layouts.
+ */
 enum class AprilTagField {
+  /// 2022 Rapid React.
   k2022RapidReact,
+  /// 2023 Charged Up.
   k2023ChargedUp,
+  /// 2024 Crescendo.
+  k2024Crescendo,
+  /// 2025 Reefscape AndyMark (see TU12).
+  k2025ReefscapeAndyMark,
+  /// 2025 Reefscape Welded (see TU12).
+  k2025ReefscapeWelded,
+  /// Alias to the current game.
+  kDefaultField = k2025ReefscapeWelded,
 
   // This is a placeholder for denoting the last supported field. This should
   // always be the last entry in the enum and should not be used by users
   kNumFields,
 };
-
-/**
- * Loads an AprilTagFieldLayout from a predefined field
- *
- * @param field The predefined field
- */
-WPILIB_DLLEXPORT AprilTagFieldLayout
-LoadAprilTagLayoutField(AprilTagField field);
 
 }  // namespace frc

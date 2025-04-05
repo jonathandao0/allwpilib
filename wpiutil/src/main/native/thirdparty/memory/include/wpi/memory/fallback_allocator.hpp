@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_FALLBACK_ALLOCATOR_HPP_INCLUDED
 #define WPI_MEMORY_FALLBACK_ALLOCATOR_HPP_INCLUDED
@@ -17,12 +16,12 @@ namespace wpi
 {
     namespace memory
     {
-        /// A \concept{raw_allocator,RawAllocator} with a fallback.
+        /// A RawAllocator with a fallback.
         /// Allocation first tries `Default`, if it fails,
         /// it uses `Fallback`.
-        /// \requires `Default` must be a composable \concept{concept_rawallocator,RawAllocator},
-        /// `Fallback` must be a \concept{concept_rawallocator,RawAllocator}.
-        /// \ingroup adapter
+        /// \requires `Default` must be a composable RawAllocator,
+        /// `Fallback` must be a RawAllocator.
+        /// \ingroup memory_adapter
         template <class Default, class Fallback>
         class fallback_allocator
         : WPI_EBO(detail::ebo_storage<0, typename allocator_traits<Default>::allocator_type>),

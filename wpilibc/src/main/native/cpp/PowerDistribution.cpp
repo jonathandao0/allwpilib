@@ -4,6 +4,8 @@
 
 #include "frc/PowerDistribution.h"
 
+#include <vector>
+
 #include <fmt/format.h>
 #include <hal/FRCUsageReporting.h>
 #include <hal/Ports.h>
@@ -13,7 +15,6 @@
 #include <wpi/sendable/SendableRegistry.h>
 
 #include "frc/Errors.h"
-#include "frc/SensorUtil.h"
 
 static_assert(static_cast<HAL_PowerDistributionType>(
                   frc::PowerDistribution::ModuleType::kCTRE) ==
@@ -38,7 +39,14 @@ PowerDistribution::PowerDistribution() {
   m_module = HAL_GetPowerDistributionModuleNumber(m_handle, &status);
   FRC_ReportError(status, "Module {}", m_module);
 
-  HAL_Report(HALUsageReporting::kResourceType_PDP, m_module + 1);
+  if (HAL_GetPowerDistributionType(m_handle, &status) ==
+      HAL_PowerDistributionType::HAL_PowerDistributionType_kCTRE) {
+    HAL_Report(HALUsageReporting::kResourceType_PDP,
+               HALUsageReporting::kPDP_CTRE);
+  } else {
+    HAL_Report(HALUsageReporting::kResourceType_PDP,
+               HALUsageReporting::kPDP_REV);
+  }
   wpi::SendableRegistry::AddLW(this, "PowerDistribution", m_module);
 }
 
@@ -53,15 +61,21 @@ PowerDistribution::PowerDistribution(int module, ModuleType moduleType) {
   m_module = HAL_GetPowerDistributionModuleNumber(m_handle, &status);
   FRC_ReportError(status, "Module {}", module);
 
-  HAL_Report(HALUsageReporting::kResourceType_PDP, m_module + 1);
+  if (moduleType == ModuleType::kCTRE) {
+    HAL_Report(HALUsageReporting::kResourceType_PDP,
+               HALUsageReporting::kPDP_CTRE);
+  } else {
+    HAL_Report(HALUsageReporting::kResourceType_PDP,
+               HALUsageReporting::kPDP_REV);
+  }
   wpi::SendableRegistry::AddLW(this, "PowerDistribution", m_module);
 }
 
-PowerDistribution::~PowerDistribution() {
-  if (m_handle != HAL_kInvalidHandle) {
-    HAL_CleanPowerDistribution(m_handle);
-    m_handle = HAL_kInvalidHandle;
-  }
+int PowerDistribution::GetNumChannels() const {
+  int32_t status = 0;
+  int32_t size = HAL_GetPowerDistributionNumChannels(m_handle, &status);
+  FRC_ReportError(status, "Module {}", m_module);
+  return size;
 }
 
 double PowerDistribution::GetVoltage() const {
@@ -85,6 +99,17 @@ double PowerDistribution::GetCurrent(int channel) const {
   FRC_ReportError(status, "Module {} Channel {}", m_module, channel);
 
   return current;
+}
+
+std::vector<double> PowerDistribution::GetAllCurrents() const {
+  int32_t status = 0;
+  int32_t size = GetNumChannels();
+  std::vector<double> currents(size);
+
+  HAL_GetPowerDistributionAllChannelCurrents(m_handle, currents.data(), size,
+                                             &status);
+  FRC_ReportError(status, "Module {}", m_module);
+  return currents;
 }
 
 double PowerDistribution::GetTotalCurrent() const {
@@ -172,6 +197,118 @@ PowerDistribution::Faults PowerDistribution::GetFaults() const {
   return faults;
 }
 
+bool PowerDistribution::Faults::GetBreakerFault(int channel) const {
+  switch (channel) {
+    case 0:
+      return Channel0BreakerFault != 0;
+    case 1:
+      return Channel1BreakerFault != 0;
+    case 2:
+      return Channel2BreakerFault != 0;
+    case 3:
+      return Channel3BreakerFault != 0;
+    case 4:
+      return Channel4BreakerFault != 0;
+    case 5:
+      return Channel5BreakerFault != 0;
+    case 6:
+      return Channel6BreakerFault != 0;
+    case 7:
+      return Channel7BreakerFault != 0;
+    case 8:
+      return Channel8BreakerFault != 0;
+    case 9:
+      return Channel9BreakerFault != 0;
+    case 10:
+      return Channel10BreakerFault != 0;
+    case 11:
+      return Channel11BreakerFault != 0;
+    case 12:
+      return Channel12BreakerFault != 0;
+    case 13:
+      return Channel13BreakerFault != 0;
+    case 14:
+      return Channel14BreakerFault != 0;
+    case 15:
+      return Channel15BreakerFault != 0;
+    case 16:
+      return Channel16BreakerFault != 0;
+    case 17:
+      return Channel17BreakerFault != 0;
+    case 18:
+      return Channel18BreakerFault != 0;
+    case 19:
+      return Channel19BreakerFault != 0;
+    case 20:
+      return Channel20BreakerFault != 0;
+    case 21:
+      return Channel21BreakerFault != 0;
+    case 22:
+      return Channel22BreakerFault != 0;
+    case 23:
+      return Channel23BreakerFault != 0;
+    default:
+      throw FRC_MakeError(err::ChannelIndexOutOfRange,
+                          "Power distribution fault channel out of bounds!");
+  }
+}
+
+bool PowerDistribution::StickyFaults::GetBreakerFault(int channel) const {
+  switch (channel) {
+    case 0:
+      return Channel0BreakerFault != 0;
+    case 1:
+      return Channel1BreakerFault != 0;
+    case 2:
+      return Channel2BreakerFault != 0;
+    case 3:
+      return Channel3BreakerFault != 0;
+    case 4:
+      return Channel4BreakerFault != 0;
+    case 5:
+      return Channel5BreakerFault != 0;
+    case 6:
+      return Channel6BreakerFault != 0;
+    case 7:
+      return Channel7BreakerFault != 0;
+    case 8:
+      return Channel8BreakerFault != 0;
+    case 9:
+      return Channel9BreakerFault != 0;
+    case 10:
+      return Channel10BreakerFault != 0;
+    case 11:
+      return Channel11BreakerFault != 0;
+    case 12:
+      return Channel12BreakerFault != 0;
+    case 13:
+      return Channel13BreakerFault != 0;
+    case 14:
+      return Channel14BreakerFault != 0;
+    case 15:
+      return Channel15BreakerFault != 0;
+    case 16:
+      return Channel16BreakerFault != 0;
+    case 17:
+      return Channel17BreakerFault != 0;
+    case 18:
+      return Channel18BreakerFault != 0;
+    case 19:
+      return Channel19BreakerFault != 0;
+    case 20:
+      return Channel20BreakerFault != 0;
+    case 21:
+      return Channel21BreakerFault != 0;
+    case 22:
+      return Channel22BreakerFault != 0;
+    case 23:
+      return Channel23BreakerFault != 0;
+    default:
+      throw FRC_MakeError(err::ChannelIndexOutOfRange,
+                          "Power distribution fault channel out of bounds!");
+  }
+}
+
 PowerDistribution::StickyFaults PowerDistribution::GetStickyFaults() const {
   int32_t status = 0;
   HAL_PowerDistributionStickyFaults halStickyFaults;
@@ -188,9 +325,7 @@ PowerDistribution::StickyFaults PowerDistribution::GetStickyFaults() const {
 
 void PowerDistribution::InitSendable(wpi::SendableBuilder& builder) {
   builder.SetSmartDashboardType("PowerDistribution");
-  int32_t status = 0;
-  int numChannels = HAL_GetPowerDistributionNumChannels(m_handle, &status);
-  FRC_ReportError(status, "Module {}", m_module);
+  int numChannels = GetNumChannels();
   // Use manual reads to avoid printing errors
   for (int i = 0; i < numChannels; ++i) {
     builder.AddDoubleProperty(

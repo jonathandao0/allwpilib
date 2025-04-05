@@ -16,7 +16,7 @@
 namespace cs {
 
 // The UnlimitedHandleResource class is a way to track handles. This version
-// allows an unlimted number of handles that are allocated sequentially. When
+// allows an unlimited number of handles that are allocated sequentially. When
 // possible, indices are reused to save memory usage and keep the array length
 // down.
 // However, automatic array management has not been implemented, but might be in
@@ -75,11 +75,7 @@ template <typename THandle, typename TStruct, int typeValue, typename TMutex>
 template <typename... Args>
 THandle UnlimitedHandleResource<THandle, TStruct, typeValue, TMutex>::Allocate(
     Args&&... args) {
-#ifdef _MSC_VER  // work around VS2019 16.4.0 bug
-  std::scoped_lock<TMutex> lock(m_handleMutex);
-#else
   std::scoped_lock sync(m_handleMutex);
-#endif
   size_t i;
   for (i = 0; i < m_structures.size(); i++) {
     if (m_structures[i] == nullptr) {
@@ -187,10 +183,10 @@ UnlimitedHandleResource<THandle, TStruct, typeValue, TMutex>::FindIf(F func) {
   for (size_t i = 0; i < m_structures.size(); i++) {
     auto& structure = m_structures[i];
     if (structure != nullptr && func(*structure)) {
-      return std::make_pair(MakeHandle(i), structure);
+      return std::pair{MakeHandle(i), structure};
     }
   }
-  return std::make_pair(0, nullptr);
+  return std::pair{0, nullptr};
 }
 
 }  // namespace cs

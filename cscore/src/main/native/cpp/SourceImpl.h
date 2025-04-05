@@ -13,7 +13,9 @@
 #include <vector>
 
 #include <wpi/Logger.h>
+#include <wpi/RawFrame.h>
 #include <wpi/condition_variable.h>
+#include <wpi/json_fwd.h>
 #include <wpi/mutex.h>
 
 #include "Frame.h"
@@ -21,10 +23,6 @@
 #include "Image.h"
 #include "PropertyContainer.h"
 #include "cscore_cpp.h"
-
-namespace wpi {
-class json;
-}  // namespace wpi
 
 namespace cs {
 
@@ -101,7 +99,8 @@ class SourceImpl : public PropertyContainer {
 
   // Blocking function that waits for the next frame and returns it (with
   // timeout in seconds).  If timeout expires, returns empty frame.
-  Frame GetNextFrame(double timeout);
+  // If lastFrameTime==0, uses m_frame.GetTime() for lastFrameTime
+  Frame GetNextFrame(double timeout, Frame::Time lastFrameTime = 0);
 
   // Force a wakeup of all GetNextFrame() callers by sending an empty frame.
   void Wakeup();
@@ -143,8 +142,10 @@ class SourceImpl : public PropertyContainer {
                            std::string_view valueStr) override;
 
   void PutFrame(VideoMode::PixelFormat pixelFormat, int width, int height,
-                std::string_view data, Frame::Time time);
-  void PutFrame(std::unique_ptr<Image> image, Frame::Time time);
+                std::string_view data, Frame::Time time,
+                WPI_TimestampSource timeSrc = WPI_TIMESRC_FRAME_DEQUEUE);
+  void PutFrame(std::unique_ptr<Image> image, Frame::Time time,
+                WPI_TimestampSource timeSrc = WPI_TIMESRC_FRAME_DEQUEUE);
   void PutError(std::string_view msg, Frame::Time time);
 
   // Notification functions for corresponding atomics

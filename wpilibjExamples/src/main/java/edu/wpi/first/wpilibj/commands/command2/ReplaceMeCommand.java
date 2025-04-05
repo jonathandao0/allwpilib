@@ -4,9 +4,10 @@
 
 package edu.wpi.first.wpilibj.commands.command2;
 
-import edu.wpi.first.wpilibj2.command.CommandBase;
+import edu.wpi.first.wpilibj2.command.Command;
 
-public class ReplaceMeCommand extends CommandBase {
+/* You should consider using the more terse Command factories API instead https://docs.wpilib.org/en/stable/docs/software/commandbased/organizing-command-based.html#defining-commands */
+public class ReplaceMeCommand extends Command {
   /** Creates a new ReplaceMeCommand. */
   public ReplaceMeCommand() {
     // Use addRequirements() here to declare subsystem dependencies.

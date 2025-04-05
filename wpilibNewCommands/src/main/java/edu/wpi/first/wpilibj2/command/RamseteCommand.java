@@ -33,7 +33,7 @@ import java.util.function.Supplier;
  *
  * <p>This class is provided by the NewCommands VendorDep
  */
-public class RamseteCommand extends CommandBase {
+public class RamseteCommand extends Command {
   private final Timer m_timer = new Timer();
   private final boolean m_usePID;
   private final Trajectory m_trajectory;
@@ -45,7 +45,9 @@ public class RamseteCommand extends CommandBase {
   private final PIDController m_leftController;
   private final PIDController m_rightController;
   private final BiConsumer<Double, Double> m_output;
-  private DifferentialDriveWheelSpeeds m_prevSpeeds;
+  private DifferentialDriveWheelSpeeds m_prevSpeeds = new DifferentialDriveWheelSpeeds();
+  private double m_prevLeftSpeedSetpoint; // m/s
+  private double m_prevRightSpeedSetpoint; // m/s
   private double m_prevTime;
 
   /**
@@ -69,7 +71,10 @@ public class RamseteCommand extends CommandBase {
    * @param outputVolts A function that consumes the computed left and right outputs (in volts) for
    *     the robot drive.
    * @param requirements The subsystems to require.
+   * @deprecated Use LTVUnicycleController instead.
    */
+  @Deprecated(since = "2025", forRemoval = true)
+  @SuppressWarnings("this-escape")
   public RamseteCommand(
       Trajectory trajectory,
       Supplier<Pose2d> pose,
@@ -108,7 +113,10 @@ public class RamseteCommand extends CommandBase {
    * @param kinematics The kinematics for the robot drivetrain.
    * @param outputMetersPerSecond A function that consumes the computed left and right wheel speeds.
    * @param requirements The subsystems to require.
+   * @deprecated Use LTVUnicycleController instead.
    */
+  @Deprecated(since = "2025", forRemoval = true)
+  @SuppressWarnings("this-escape")
   public RamseteCommand(
       Trajectory trajectory,
       Supplier<Pose2d> pose,
@@ -143,8 +151,9 @@ public class RamseteCommand extends CommandBase {
                 initialState.velocityMetersPerSecond,
                 0,
                 initialState.curvatureRadPerMeter * initialState.velocityMetersPerSecond));
-    m_timer.reset();
-    m_timer.start();
+    m_prevLeftSpeedSetpoint = m_prevSpeeds.leftMetersPerSecond;
+    m_prevRightSpeedSetpoint = m_prevSpeeds.rightMetersPerSecond;
+    m_timer.restart();
     if (m_usePID) {
       m_leftController.reset();
       m_rightController.reset();
@@ -154,7 +163,6 @@ public class RamseteCommand extends CommandBase {
   @Override
   public void execute() {
     double curTime = m_timer.get();
-    double dt = curTime - m_prevTime;
 
     if (m_prevTime < 0) {
       m_output.accept(0.0, 0.0);
@@ -166,20 +174,18 @@ public class RamseteCommand extends CommandBase {
         m_kinematics.toWheelSpeeds(
             m_follower.calculate(m_pose.get(), m_trajectory.sample(curTime)));
 
-    var leftSpeedSetpoint = targetWheelSpeeds.leftMetersPerSecond;
-    var rightSpeedSetpoint = targetWheelSpeeds.rightMetersPerSecond;
+    double leftSpeedSetpoint = targetWheelSpeeds.leftMetersPerSecond;
+    double rightSpeedSetpoint = targetWheelSpeeds.rightMetersPerSecond;
 
     double leftOutput;
     double rightOutput;
 
     if (m_usePID) {
       double leftFeedforward =
-          m_feedforward.calculate(
-              leftSpeedSetpoint, (leftSpeedSetpoint - m_prevSpeeds.leftMetersPerSecond) / dt);
+          m_feedforward.calculateWithVelocities(m_prevLeftSpeedSetpoint, leftSpeedSetpoint);
 
       double rightFeedforward =
-          m_feedforward.calculate(
-              rightSpeedSetpoint, (rightSpeedSetpoint - m_prevSpeeds.rightMetersPerSecond) / dt);
+          m_feedforward.calculateWithVelocities(m_prevRightSpeedSetpoint, rightSpeedSetpoint);
 
       leftOutput =
           leftFeedforward

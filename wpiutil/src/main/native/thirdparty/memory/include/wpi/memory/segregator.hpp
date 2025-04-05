@@ -1,6 +1,5 @@
-// Copyright (C) 2015-2021 Müller <jonathanmueller.dev@gmail.com>
-// This file is subject to the license terms in the LICENSE file
-// found in the top-level directory of this distribution.
+// Copyright (C) 2015-2023 Jonathan Müller and foonathan/memory contributors
+// SPDX-License-Identifier: Zlib
 
 #ifndef WPI_MEMORY_SEGREGATOR_HPP_INCLUDED
 #define WPI_MEMORY_SEGREGATOR_HPP_INCLUDED
@@ -18,8 +17,8 @@ namespace wpi
 {
     namespace memory
     {
-        /// A \concept{concept_segregatable,Segregatable} that allocates until a maximum size.
-        /// \ingroup adapter
+        /// A Segregatable that allocates until a maximum size.
+        /// \ingroup memory_adapter
         template <class RawAllocator>
         class threshold_segregatable : WPI_EBO(allocator_traits<RawAllocator>::allocator_type)
         {
@@ -77,9 +76,9 @@ namespace wpi
                                                          std::forward<RawAllocator>(alloc));
         }
 
-        /// A composable \concept{concept_rawallocator,RawAllocator} that will always fail.
+        /// A composable RawAllocator that will always fail.
         /// This is useful for compositioning or as last resort in \ref binary_segregator.
-        /// \ingroup allocator
+        /// \ingroup memory_allocator
         class null_allocator
         {
         public:
@@ -117,10 +116,10 @@ namespace wpi
             }
         };
 
-        /// A \concept{concept_rawallocator,RawAllocator} that either uses the \concept{concept_segregatable,Segregatable} or the other `RawAllocator`.
+        /// A RawAllocator that either uses the Segregatable or the other `RawAllocator`.
         /// It is a faster alternative to \ref fallback_allocator that doesn't require a composable allocator
         /// and decides about the allocator to use purely with the `Segregatable` based on size and alignment.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <class Segregatable, class RawAllocator>
         class binary_segregator
         : WPI_EBO(
@@ -134,8 +133,8 @@ namespace wpi
             using segregatable_allocator_type = typename segregatable::allocator_type;
             using fallback_allocator_type = typename allocator_traits<RawAllocator>::allocator_type;
 
-            /// \effects Creates it by giving the \concept{concept_segregatable,Segregatable}
-            /// and the \concept{concept_rawallocator,RawAllocator}.
+            /// \effects Creates it by giving the Segregatable
+            /// and the RawAllocator.
             explicit binary_segregator(segregatable            s,
                                        fallback_allocator_type fallback = fallback_allocator_type())
             : detail::ebo_storage<1, fallback_allocator_type>(detail::move(fallback)),
@@ -144,7 +143,7 @@ namespace wpi
             }
 
             /// @{
-            /// \effects Uses the \concept{concept_segregatable,Segregatable} to decide which allocator to use.
+            /// \effects Uses the Segregatable to decide which allocator to use.
             /// Then forwards to the chosen allocator.
             void* allocate_node(std::size_t size, std::size_t alignment)
             {
@@ -224,7 +223,7 @@ namespace wpi
 
             /// @{
             /// \returns A reference to the fallback allocator.
-            /// It will be used if the \concept{concept_segregator,Segregator} doesn't want the alloction.
+            /// It will be used if the Segregator doesn't want the alloction.
             fallback_allocator_type& get_fallback_allocator() noexcept
             {
                 return detail::ebo_storage<1, fallback_allocator_type>::get();
@@ -367,16 +366,16 @@ namespace wpi
         } // namespace detail
 
         /// Creates multiple nested \ref binary_segregator.
-        /// If you pass one type, it must be a \concept{concept_segregatable,Segregatable}.
+        /// If you pass one type, it must be a Segregatable.
         /// Then the result is a \ref binary_segregator with that `Segregatable` and \ref null_allocator as fallback.
         /// If you pass two types, the first one must be a `Segregatable`,
-        /// the second one a \concept{concept_rawallocator,RawAllocator}.
+        /// the second one a RawAllocator.
         /// Then the result is a simple \ref binary_segregator with those arguments.
         /// If you pass more than one, the last one must be a `RawAllocator` all others `Segregatable`,
         /// the result is `binary_segregator<Head, segregator<Tail...>>`.
         /// \note It will result in an allocator that tries each `Segregatable` in the order specified
         /// using the last parameter as final fallback.
-        /// \ingroup adapter
+        /// \ingroup memory_adapter
         template <class... Allocators>
         WPI_ALIAS_TEMPLATE(segregator,
                                  typename detail::make_segregator_t<Allocators...>::type);
@@ -389,7 +388,7 @@ namespace wpi
             return detail::make_segregator(std::forward<Args>(args)...);
         }
 
-        /// The number of \concept{concept_segregatable,Segregatable} a \ref segregator has.
+        /// The number of Segregatable a \ref segregator has.
         /// \relates segregator
         template <class Segregator>
         struct segregator_size
@@ -397,13 +396,13 @@ namespace wpi
             static const std::size_t value = detail::fallback_type<Segregator>::size;
         };
 
-        /// The type of the `I`th \concept{concept_segregatable,Segregatable}.
+        /// The type of the `I`th Segregatable.
         /// \relates segregator
         template <std::size_t I, class Segregator>
         using segregatable_allocator_type = typename detail::segregatable_type<I, Segregator>::type;
 
         /// @{
-        /// \returns The `I`th \concept{concept_segregatable,Segregatable}.
+        /// \returns The `I`th Segregatable.
         /// \relates segregrator
         template <std::size_t I, class Segregator, class Fallback>
         auto get_segregatable_allocator(binary_segregator<Segregator, Fallback>& s)
@@ -420,13 +419,13 @@ namespace wpi
         }
         /// @}
 
-        /// The type of the final fallback \concept{concept_rawallocator,RawAllocator}.
+        /// The type of the final fallback RawAllocator.
         /// \relates segregator
         template <class Segregator>
         using fallback_allocator_type = typename detail::fallback_type<Segregator>::type;
 
         /// @{
-        /// \returns The final fallback \concept{concept_rawallocator,RawAllocator}.
+        /// \returns The final fallback RawAllocator.
         /// \relates segregator
         template <class Segregator, class Fallback>
         auto get_fallback_allocator(binary_segregator<Segregator, Fallback>& s)

@@ -4,6 +4,10 @@
 
 #include "frc2/command/ParallelDeadlineGroup.h"
 
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include <wpi/sendable/SendableBuilder.h>
 
 using namespace frc2;
@@ -62,7 +66,7 @@ Command::InterruptionBehavior ParallelDeadlineGroup::GetInterruptionBehavior()
 
 void ParallelDeadlineGroup::AddCommands(
     std::vector<std::unique_ptr<Command>>&& commands) {
-  CommandScheduler::GetInstance().RequireUngrouped(commands);
+  CommandScheduler::GetInstance().RequireUngroupedAndUnscheduled(commands);
 
   if (!m_finished) {
     throw FRC_MakeError(frc::err::CommandIllegalUse,
@@ -97,7 +101,7 @@ void ParallelDeadlineGroup::SetDeadline(std::unique_ptr<Command>&& deadline) {
 }
 
 void ParallelDeadlineGroup::InitSendable(wpi::SendableBuilder& builder) {
-  CommandBase::InitSendable(builder);
+  Command::InitSendable(builder);
 
   builder.AddStringProperty(
       "deadline", [this] { return m_deadline->GetName(); }, nullptr);

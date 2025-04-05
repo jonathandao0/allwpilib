@@ -21,7 +21,7 @@ extern "C" {
 /**
  * Initializes an analog gyro.
  *
- * @param[in] handle handle to the analog port
+ * @param[in] handle handle to the analog input port
  * @param[in] allocationLocation the location where the allocation is occurring
  *                                (can be null)
  * @param[out] status the error code, or 0 for success
@@ -129,7 +129,7 @@ double HAL_GetAnalogGyroRate(HAL_GyroHandle handle, int32_t* status);
  *
  * @param[in] handle the gyro handle
  * @param[out] status Error status variable. 0 on success.
- * @return the gryo offset
+ * @return the gyro offset
  */
 double HAL_GetAnalogGyroOffset(HAL_GyroHandle handle, int32_t* status);
 

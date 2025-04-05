@@ -3,10 +3,17 @@
 // the WPILib BSD license file in the root directory of this project.
 
 #include <limits>
+#include <numbers>
+
+#include <gtest/gtest.h>
 
 #include "frc/MathUtil.h"
-#include "gtest/gtest.h"
+#include "frc/geometry/Translation2d.h"
+#include "frc/geometry/Translation3d.h"
 #include "units/angle.h"
+#include "units/length.h"
+#include "units/time.h"
+#include "units/velocity.h"
 
 #define EXPECT_UNITS_EQ(a, b) EXPECT_DOUBLE_EQ((a).value(), (b).value())
 
@@ -116,4 +123,103 @@ TEST(MathUtilTest, AngleModulus) {
                   units::radian_t{std::numbers::pi / 2});
   EXPECT_UNITS_EQ(frc::AngleModulus(units::radian_t{-std::numbers::pi / 2}),
                   units::radian_t{-std::numbers::pi / 2});
+}
+
+TEST(MathUtilTest, IsNear) {
+  // The answer is always 42
+  // Positive integer checks
+  EXPECT_TRUE(frc::IsNear(42, 42, 1));
+  EXPECT_TRUE(frc::IsNear(42, 41, 2));
+  EXPECT_TRUE(frc::IsNear(42, 43, 2));
+  EXPECT_FALSE(frc::IsNear(42, 44, 1));
+
+  // Negative integer checks
+  EXPECT_TRUE(frc::IsNear(-42, -42, 1));
+  EXPECT_TRUE(frc::IsNear(-42, -41, 2));
+  EXPECT_TRUE(frc::IsNear(-42, -43, 2));
+  EXPECT_FALSE(frc::IsNear(-42, -44, 1));
+
+  // Mixed sign integer checks
+  EXPECT_FALSE(frc::IsNear(-42, 42, 1));
+  EXPECT_FALSE(frc::IsNear(-42, 41, 2));
+  EXPECT_FALSE(frc::IsNear(-42, 43, 2));
+  EXPECT_FALSE(frc::IsNear(42, -42, 1));
+  EXPECT_FALSE(frc::IsNear(42, -41, 2));
+  EXPECT_FALSE(frc::IsNear(42, -43, 2));
+
+  // Floating point checks
+  EXPECT_TRUE(frc::IsNear<double>(42, 41.5, 1));
+  EXPECT_TRUE(frc::IsNear<double>(42, 42.5, 1));
+  EXPECT_TRUE(frc::IsNear<double>(42, 41.5, 0.75));
+  EXPECT_TRUE(frc::IsNear<double>(42, 42.5, 0.75));
+
+  // Wraparound checks
+  EXPECT_TRUE(frc::IsNear(0_deg, 356_deg, 5_deg, 0_deg, 360_deg));
+  EXPECT_TRUE(frc::IsNear(0, -356, 5, 0, 360));
+  EXPECT_TRUE(frc::IsNear(0, 4, 5, 0, 360));
+  EXPECT_TRUE(frc::IsNear(0, -4, 5, 0, 360));
+  EXPECT_TRUE(frc::IsNear(400, 41, 5, 0, 360));
+  EXPECT_TRUE(frc::IsNear(400, -319, 5, 0, 360));
+  EXPECT_TRUE(frc::IsNear(400, 401, 5, 0, 360));
+  EXPECT_FALSE(frc::IsNear<double>(0, 356, 2.5, 0, 360));
+  EXPECT_FALSE(frc::IsNear<double>(0, -356, 2.5, 0, 360));
+  EXPECT_FALSE(frc::IsNear<double>(0, 4, 2.5, 0, 360));
+  EXPECT_FALSE(frc::IsNear<double>(0, -4, 2.5, 0, 360));
+  EXPECT_FALSE(frc::IsNear(400, 35, 5, 0, 360));
+  EXPECT_FALSE(frc::IsNear(400, -315, 5, 0, 360));
+  EXPECT_FALSE(frc::IsNear(400, 395, 5, 0, 360));
+  EXPECT_FALSE(frc::IsNear(0_deg, -4_deg, 2.5_deg, 0_deg, 360_deg));
+}
+
+TEST(MathUtilTest, Translation2dSlewRateLimitUnchanged) {
+  const frc::Translation2d translation1{0_m, 0_m};
+  const frc::Translation2d translation2{2_m, 2_m};
+
+  const frc::Translation2d result1 =
+      frc::SlewRateLimit(translation1, translation2, 1_s, 50_mps);
+
+  const frc::Translation2d expected1{2_m, 2_m};
+
+  EXPECT_EQ(result1, expected1);
+}
+
+TEST(MathUtilTest, Translation2dSlewRateLimitChanged) {
+  const frc::Translation2d translation3{1_m, 1_m};
+  const frc::Translation2d translation4{3_m, 3_m};
+
+  const frc::Translation2d result2 =
+      frc::SlewRateLimit(translation3, translation4, 0.25_s, 2_mps);
+
+  const frc::Translation2d expected2{
+      units::meter_t{1.0 + 0.5 * (std::numbers::sqrt2 / 2)},
+      units::meter_t{1.0 + 0.5 * (std::numbers::sqrt2 / 2)}};
+
+  EXPECT_EQ(result2, expected2);
+}
+
+TEST(MathUtilTest, Translation3dSlewRateLimitUnchanged) {
+  const frc::Translation3d translation1{0_m, 0_m, 0_m};
+  const frc::Translation3d translation2{2_m, 2_m, 2_m};
+
+  const frc::Translation3d result1 =
+      frc::SlewRateLimit(translation1, translation2, 1_s, 50.0_mps);
+
+  const frc::Translation3d expected1{2_m, 2_m, 2_m};
+
+  EXPECT_EQ(result1, expected1);
+}
+
+TEST(MathUtilTest, Translation3dSlewRateLimitChanged) {
+  const frc::Translation3d translation3{1_m, 1_m, 1_m};
+  const frc::Translation3d translation4{3_m, 3_m, 3_m};
+
+  const frc::Translation3d result2 =
+      frc::SlewRateLimit(translation3, translation4, 0.25_s, 2.0_mps);
+
+  const frc::Translation3d expected2{
+      units::meter_t{1.0 + 0.5 * std::numbers::inv_sqrt3},
+      units::meter_t{1.0 + 0.5 * std::numbers::inv_sqrt3},
+      units::meter_t{1.0 + 0.5 * std::numbers::inv_sqrt3}};
+
+  EXPECT_EQ(result2, expected2);
 }

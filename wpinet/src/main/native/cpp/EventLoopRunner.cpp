@@ -4,6 +4,9 @@
 
 #include "wpinet/EventLoopRunner.h"
 
+#include <memory>
+#include <utility>
+
 #include <wpi/SmallVector.h>
 #include <wpi/condition_variable.h>
 #include <wpi/mutex.h>
@@ -59,6 +62,7 @@ void EventLoopRunner::Stop() {
       h.SetLoopClosing(true);
       h.Close();
     });
+    loop.SetClosing();
   });
   m_owner.Join();
 }

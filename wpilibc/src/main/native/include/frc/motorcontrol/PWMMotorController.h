@@ -4,9 +4,16 @@
 
 #pragma once
 
+#include <concepts>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
+#include <units/voltage.h>
+#include <wpi/deprecated.h>
 #include <wpi/sendable/Sendable.h>
 #include <wpi/sendable/SendableHelper.h>
 
@@ -16,6 +23,8 @@
 
 namespace frc {
 class DMA;
+
+WPI_IGNORE_DEPRECATED
 
 /**
  * Common base class for all PWM Motor Controllers.
@@ -41,6 +50,20 @@ class PWMMotorController : public MotorController,
   void Set(double value) override;
 
   /**
+   * Sets the voltage output of the PWMMotorController. Compensates for
+   * the current bus voltage to ensure that the desired voltage is output even
+   * if the battery voltage is below 12V - highly useful when the voltage
+   * outputs are "meaningful" (e.g. they come from a feedforward calculation).
+   *
+   * <p>NOTE: This function *must* be called regularly in order for voltage
+   * compensation to work properly - unlike the ordinary set function, it is not
+   * "set it and forget it."
+   *
+   * @param output The voltage to output.
+   */
+  void SetVoltage(units::volt_t output) override;
+
+  /**
    * Get the recently set value of the PWM. This value is affected by the
    * inversion property. If you want the value that is sent directly to the
    * MotorController, use PWM::GetSpeed() instead.
@@ -48,6 +71,15 @@ class PWMMotorController : public MotorController,
    * @return The most recently set value for the PWM between -1.0 and 1.0.
    */
   double Get() const override;
+
+  /**
+   * Gets the voltage output of the motor controller, nominally between -12 V
+   * and 12 V.
+   *
+   * @return The voltage of the motor controller, nominally between -12 V and 12
+   *   V.
+   */
+  virtual units::volt_t GetVoltage() const;
 
   void SetInverted(bool isInverted) override;
 
@@ -71,6 +103,24 @@ class PWMMotorController : public MotorController,
    */
   void EnableDeadbandElimination(bool eliminateDeadband);
 
+  /**
+   * Make the given PWM motor controller follow the output of this one.
+   *
+   * @param follower The motor controller follower.
+   */
+  void AddFollower(PWMMotorController& follower);
+
+  /**
+   * Make the given PWM motor controller follow the output of this one.
+   *
+   * @param follower The motor controller follower.
+   */
+  template <std::derived_from<PWMMotorController> T>
+  void AddFollower(T&& follower) {
+    m_owningFollowers.emplace_back(
+        std::make_unique<std::decay_t<T>>(std::forward<T>(follower)));
+  }
+
  protected:
   /**
    * Constructor for a PWM Motor %Controller connected via PWM.
@@ -83,12 +133,17 @@ class PWMMotorController : public MotorController,
 
   void InitSendable(wpi::SendableBuilder& builder) override;
 
+  /// PWM instances for motor controller.
   PWM m_pwm;
 
  private:
   bool m_isInverted = false;
+  std::vector<PWMMotorController*> m_nonowningFollowers;
+  std::vector<std::unique_ptr<PWMMotorController>> m_owningFollowers;
 
   PWM* GetPwm() { return &m_pwm; }
 };
+
+WPI_UNIGNORE_DEPRECATED
 
 }  // namespace frc

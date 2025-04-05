@@ -2,10 +2,10 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
-#include <gtest/gtest.h>
-
 #include <cmath>
 #include <random>
+
+#include <gtest/gtest.h>
 
 #include "frc/EigenCore.h"
 #include "frc/controller/LinearPlantInversionFeedforward.h"
@@ -36,7 +36,7 @@ class StateSpaceTest : public testing::Test {
     // Gear ratio
     constexpr double G = 40.0 / 40.0;
 
-    return frc::LinearSystemId::ElevatorSystem(motors, m, r, G);
+    return frc::LinearSystemId::ElevatorSystem(motors, m, r, G).Slice(0);
   }();
   LinearQuadraticRegulator<2, 1> controller{plant, {0.02, 0.4}, {12.0}, kDt};
   KalmanFilter<2, 1, 1> observer{plant, {0.05, 1.0}, {0.0001}, kDt};

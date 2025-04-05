@@ -1,7 +1,7 @@
-From 35b1a8382240732065790c88a0c515701c1a2beb Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: PJ Reiniger <pj.reiniger@gmail.com>
 Date: Thu, 19 May 2022 00:58:36 -0400
-Subject: [PATCH 25/28] Prefer to use static pointers in raw_ostream
+Subject: [PATCH 25/37] Prefer to use static pointers in raw_ostream
 
 See #1401
 ---
@@ -9,13 +9,13 @@ See #1401
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/llvm/lib/Support/raw_ostream.cpp b/llvm/lib/Support/raw_ostream.cpp
-index 632b52235..a703a75ed 100644
+index 7e9a58db056e315cdcec22af0439017dee737c8f..b417bebdef3a2f2e12e46e65ad7885d243b477a7 100644
 --- a/llvm/lib/Support/raw_ostream.cpp
 +++ b/llvm/lib/Support/raw_ostream.cpp
-@@ -599,15 +599,15 @@ void raw_fd_ostream::anchor() {}
- raw_fd_ostream &llvm::outs() {
-   // Set buffer settings to model stdout behavior.
-   std::error_code EC;
+@@ -612,9 +612,9 @@ raw_fd_ostream &llvm::outs() {
+   EC = enableAutoConversion(STDOUT_FILENO);
+   assert(!EC);
+ #endif
 -  static raw_fd_ostream S("-", EC, sys::fs::OF_None);
 +  static raw_fd_ostream* S = new raw_fd_ostream("-", EC, sys::fs::OF_None);
    assert(!EC);
@@ -24,7 +24,10 @@ index 632b52235..a703a75ed 100644
  }
  
  raw_fd_ostream &llvm::errs() {
-   // Set standard error to be unbuffered and tied to outs() by default.
+@@ -623,8 +623,8 @@ raw_fd_ostream &llvm::errs() {
+   std::error_code EC = enableAutoConversion(STDERR_FILENO);
+   assert(!EC);
+ #endif
 -  static raw_fd_ostream S(STDERR_FILENO, false, true);
 -  return S;
 +  static raw_fd_ostream* S = new raw_fd_ostream(STDERR_FILENO, false, true);

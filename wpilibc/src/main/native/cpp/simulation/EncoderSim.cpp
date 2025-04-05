@@ -6,7 +6,6 @@
 
 #include <memory>
 #include <stdexcept>
-#include <utility>
 
 #include <hal/simulation/EncoderData.h>
 
@@ -191,7 +190,7 @@ void EncoderSim::SetDistance(double distance) {
   HALSIM_SetEncoderDistance(m_index, distance);
 }
 
-double EncoderSim::GetDistance() {
+double EncoderSim::GetDistance() const {
   return HALSIM_GetEncoderDistance(m_index);
 }
 
@@ -199,6 +198,6 @@ void EncoderSim::SetRate(double rate) {
   HALSIM_SetEncoderRate(m_index, rate);
 }
 
-double EncoderSim::GetRate() {
+double EncoderSim::GetRate() const {
   return HALSIM_GetEncoderRate(m_index);
 }

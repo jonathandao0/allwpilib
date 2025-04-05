@@ -5,7 +5,7 @@
 package edu.wpi.first.wpilibj2.command;
 
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -17,10 +17,11 @@ import java.util.Map;
  *
  * <p>This class is provided by the NewCommands VendorDep
  */
-@SuppressWarnings("removal")
-public class ParallelCommandGroup extends CommandGroupBase {
+public class ParallelCommandGroup extends Command {
   // maps commands in this composition to whether they are still running
-  private final Map<Command, Boolean> m_commands = new HashMap<>();
+  // LinkedHashMap guarantees we iterate over commands in the order they were added (Note that
+  // changing the value associated with a command does NOT change the order)
+  private final Map<Command, Boolean> m_commands = new LinkedHashMap<>();
   private boolean m_runWhenDisabled = true;
   private InterruptionBehavior m_interruptBehavior = InterruptionBehavior.kCancelIncoming;
 
@@ -31,11 +32,16 @@ public class ParallelCommandGroup extends CommandGroupBase {
    *
    * @param commands the commands to include in this composition.
    */
+  @SuppressWarnings("this-escape")
   public ParallelCommandGroup(Command... commands) {
     addCommands(commands);
   }
 
-  @Override
+  /**
+   * Adds the given commands to the group.
+   *
+   * @param commands Commands to add to the group.
+   */
   public final void addCommands(Command... commands) {
     if (m_commands.containsValue(true)) {
       throw new IllegalStateException(
@@ -45,12 +51,12 @@ public class ParallelCommandGroup extends CommandGroupBase {
     CommandScheduler.getInstance().registerComposedCommands(commands);
 
     for (Command command : commands) {
-      if (!Collections.disjoint(command.getRequirements(), m_requirements)) {
+      if (!Collections.disjoint(command.getRequirements(), getRequirements())) {
         throw new IllegalArgumentException(
             "Multiple commands in a parallel composition cannot require the same subsystems");
       }
       m_commands.put(command, false);
-      m_requirements.addAll(command.getRequirements());
+      addRequirements(command.getRequirements());
       m_runWhenDisabled &= command.runsWhenDisabled();
       if (command.getInterruptionBehavior() == InterruptionBehavior.kCancelSelf) {
         m_interruptBehavior = InterruptionBehavior.kCancelSelf;

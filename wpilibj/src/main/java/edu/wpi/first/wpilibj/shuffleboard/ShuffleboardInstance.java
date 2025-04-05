@@ -10,6 +10,7 @@ import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.PubSubOption;
 import edu.wpi.first.networktables.StringPublisher;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -17,7 +18,7 @@ import java.util.function.Consumer;
 
 final class ShuffleboardInstance implements ShuffleboardRoot {
   private final Map<String, ShuffleboardTab> m_tabs = new LinkedHashMap<>();
-
+  private boolean m_reported = false; // NOPMD redundant field initializer
   private boolean m_tabsChanged = false; // NOPMD redundant field initializer
   private final NetworkTable m_rootTable;
   private final NetworkTable m_rootMetaTable;
@@ -32,13 +33,17 @@ final class ShuffleboardInstance implements ShuffleboardRoot {
     requireNonNullParam(ntInstance, "ntInstance", "ShuffleboardInstance");
     m_rootTable = ntInstance.getTable(Shuffleboard.kBaseTableName);
     m_rootMetaTable = m_rootTable.getSubTable(".metadata");
-    m_selectedTabPub = m_rootMetaTable.getStringTopic("Selected").publish();
-    HAL.report(tResourceType.kResourceType_Shuffleboard, 0);
+    m_selectedTabPub =
+        m_rootMetaTable.getStringTopic("Selected").publish(PubSubOption.keepDuplicates(true));
   }
 
   @Override
   public ShuffleboardTab getTab(String title) {
     requireNonNullParam(title, "title", "getTab");
+    if (!m_reported) {
+      HAL.report(tResourceType.kResourceType_Shuffleboard, 0);
+      m_reported = true;
+    }
     if (!m_tabs.containsKey(title)) {
       m_tabs.put(title, new ShuffleboardTab(this, title));
       m_tabsChanged = true;
@@ -98,11 +103,11 @@ final class ShuffleboardInstance implements ShuffleboardRoot {
    */
   private void apply(ShuffleboardContainer container, Consumer<ComplexWidget> func) {
     for (ShuffleboardComponent<?> component : container.getComponents()) {
-      if (component instanceof ComplexWidget) {
-        func.accept((ComplexWidget) component);
+      if (component instanceof ComplexWidget widget) {
+        func.accept(widget);
       }
-      if (component instanceof ShuffleboardContainer) {
-        apply((ShuffleboardContainer) component, func);
+      if (component instanceof ShuffleboardContainer nestedContainer) {
+        apply(nestedContainer, func);
       }
     }
   }

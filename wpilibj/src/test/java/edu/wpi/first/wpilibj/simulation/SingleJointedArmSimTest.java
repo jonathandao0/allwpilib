@@ -12,27 +12,46 @@ import edu.wpi.first.math.util.Units;
 import org.junit.jupiter.api.Test;
 
 class SingleJointedArmSimTest {
-  SingleJointedArmSim m_sim =
-      new SingleJointedArmSim(
-          DCMotor.getVex775Pro(2),
-          100,
-          3.0,
-          Units.inchesToMeters(19.0 / 2.0),
-          -Math.PI,
-          0.0,
-          10.0 / 2.2,
-          true);
-
   @Test
   void testArmDisabled() {
-    m_sim.setState(VecBuilder.fill(0.0, 0.0));
+    SingleJointedArmSim sim =
+        new SingleJointedArmSim(
+            DCMotor.getVex775Pro(2),
+            300,
+            3.0,
+            Units.inchesToMeters(30.0),
+            -Math.PI,
+            0.0,
+            true,
+            Math.PI / 2.0);
+
+    // Reset Arm angle to 0
+    sim.setState(VecBuilder.fill(0.0, 0.0));
 
     for (int i = 0; i < 12 / 0.02; i++) {
-      m_sim.setInput(0.0);
-      m_sim.update(0.020);
+      sim.setInput(0.0);
+      sim.update(0.020);
     }
 
     // the arm should swing down
-    assertEquals(-Math.PI / 2.0, m_sim.getAngleRads(), 0.1);
+    assertEquals(-Math.PI / 2.0, sim.getAngleRads(), 0.1);
+  }
+
+  @Test
+  void testInitialState() {
+    double startingAngleRads = Math.PI / 4.0;
+    SingleJointedArmSim sim =
+        new SingleJointedArmSim(
+            DCMotor.getKrakenX60(2),
+            125,
+            3.0,
+            Units.inchesToMeters(30.0),
+            0,
+            Math.PI / 2.0,
+            true,
+            startingAngleRads);
+
+    assertEquals(startingAngleRads, sim.getAngleRads());
+    assertEquals(0, sim.getVelocityRadPerSec());
   }
 }

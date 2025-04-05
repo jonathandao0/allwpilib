@@ -4,10 +4,11 @@
 
 #include <numbers>
 
+#include <gtest/gtest.h>
+
 #include "frc/MathUtil.h"
 #include "frc/controller/HolonomicDriveController.h"
 #include "frc/trajectory/TrajectoryGenerator.h"
-#include "gtest/gtest.h"
 #include "units/angular_acceleration.h"
 #include "units/math.h"
 #include "units/time.h"
@@ -21,7 +22,7 @@ static constexpr units::radian_t kAngularTolerance{2.0 * std::numbers::pi /
 
 TEST(HolonomicDriveControllerTest, ReachesReference) {
   frc::HolonomicDriveController controller{
-      frc2::PIDController{1.0, 0.0, 0.0}, frc2::PIDController{1.0, 0.0, 0.0},
+      frc::PIDController{1.0, 0.0, 0.0}, frc::PIDController{1.0, 0.0, 0.0},
       frc::ProfiledPIDController<units::radian>{
           1.0, 0.0, 0.0,
           frc::TrapezoidProfile<units::radian>::Constraints{
@@ -35,7 +36,7 @@ TEST(HolonomicDriveControllerTest, ReachesReference) {
   auto trajectory = frc::TrajectoryGenerator::GenerateTrajectory(
       waypoints, {8.0_mps, 4.0_mps_sq});
 
-  constexpr auto kDt = 0.02_s;
+  constexpr units::second_t kDt = 20_ms;
   auto totalTime = trajectory.TotalTime();
   for (size_t i = 0; i < (totalTime / kDt).value(); ++i) {
     auto state = trajectory.Sample(kDt * i);
@@ -53,7 +54,7 @@ TEST(HolonomicDriveControllerTest, ReachesReference) {
 
 TEST(HolonomicDriveControllerTest, DoesNotRotateUnnecessarily) {
   frc::HolonomicDriveController controller{
-      frc2::PIDController{1, 0, 0}, frc2::PIDController{1, 0, 0},
+      frc::PIDController{1, 0, 0}, frc::PIDController{1, 0, 0},
       frc::ProfiledPIDController<units::radian>{
           1, 0, 0,
           frc::TrapezoidProfile<units::radian>::Constraints{

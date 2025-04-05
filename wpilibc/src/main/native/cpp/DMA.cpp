@@ -15,11 +15,6 @@
 #include <hal/DMA.h>
 #include <hal/HALBase.h>
 
-#include "frc/AnalogInput.h"
-#include "frc/Counter.h"
-#include "frc/DigitalSource.h"
-#include "frc/DutyCycle.h"
-#include "frc/Encoder.h"
 #include "frc/Errors.h"
 
 using namespace frc;
@@ -30,19 +25,15 @@ DMA::DMA() {
   FRC_CheckErrorStatus(status, "InitializeDMA");
 }
 
-DMA::~DMA() {
-  HAL_FreeDMA(dmaHandle);
-}
-
 void DMA::SetPause(bool pause) {
   int32_t status = 0;
   HAL_SetDMAPause(dmaHandle, pause, &status);
   FRC_CheckErrorStatus(status, "SetPause");
 }
 
-void DMA::SetTimedTrigger(units::second_t seconds) {
+void DMA::SetTimedTrigger(units::second_t period) {
   int32_t status = 0;
-  HAL_SetDMATimedTrigger(dmaHandle, seconds.value(), &status);
+  HAL_SetDMATimedTrigger(dmaHandle, period.value(), &status);
   FRC_CheckErrorStatus(status, "SetTimedTrigger");
 }
 

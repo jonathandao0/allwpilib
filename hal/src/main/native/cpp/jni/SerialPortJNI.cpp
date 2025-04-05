@@ -261,11 +261,10 @@ Java_edu_wpi_first_hal_SerialPortJNI_serialWrite
   (JNIEnv* env, jclass, jint handle, jbyteArray dataToSend, jint size)
 {
   int32_t status = 0;
-  jint retVal =
-      HAL_WriteSerial(static_cast<HAL_SerialPortHandle>(handle),
-                      reinterpret_cast<const char*>(
-                          JByteArrayRef(env, dataToSend).array().data()),
-                      size, &status);
+  jint retVal = HAL_WriteSerial(
+      static_cast<HAL_SerialPortHandle>(handle),
+      reinterpret_cast<const char*>(JSpan<const jbyte>(env, dataToSend).data()),
+      size, &status);
   CheckStatus(env, status);
   return retVal;
 }
@@ -307,9 +306,9 @@ JNIEXPORT void JNICALL
 Java_edu_wpi_first_hal_SerialPortJNI_serialClose
   (JNIEnv* env, jclass, jint handle)
 {
-  int32_t status = 0;
-  HAL_CloseSerial(static_cast<HAL_SerialPortHandle>(handle), &status);
-  CheckStatus(env, status);
+  if (handle != HAL_kInvalidHandle) {
+    HAL_CloseSerial(static_cast<HAL_SerialPortHandle>(handle));
+  }
 }
 
 }  // extern "C"

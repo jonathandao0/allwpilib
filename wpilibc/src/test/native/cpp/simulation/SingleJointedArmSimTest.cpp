@@ -4,12 +4,13 @@
 
 #include <numbers>
 
+#include <gtest/gtest.h>
+
 #include "frc/simulation/SingleJointedArmSim.h"
-#include "gtest/gtest.h"
 
 TEST(SingleJointedArmTest, Disabled) {
-  frc::sim::SingleJointedArmSim sim(frc::DCMotor::Vex775Pro(2), 100, 3_kg_sq_m,
-                                    9.5_in, -180_deg, 0_deg, 10_lb, true);
+  frc::sim::SingleJointedArmSim sim(frc::DCMotor::Vex775Pro(2), 300, 3_kg_sq_m,
+                                    30_in, -180_deg, 0_deg, true, 90_deg);
   sim.SetState(frc::Vectord<2>{0.0, 0.0});
 
   for (size_t i = 0; i < 12 / 0.02; ++i) {
@@ -19,4 +20,13 @@ TEST(SingleJointedArmTest, Disabled) {
 
   // The arm should swing down.
   EXPECT_NEAR(sim.GetAngle().value(), -std::numbers::pi / 2, 0.01);
+}
+
+TEST(SingleJointedArmTest, InitialState) {
+  constexpr auto startingAngle = 45_deg;
+  frc::sim::SingleJointedArmSim sim(frc::DCMotor::KrakenX60(2), 125, 3_kg_sq_m,
+                                    30_in, 0_deg, 90_deg, true, startingAngle);
+
+  EXPECT_EQ(startingAngle, sim.GetAngle());
+  EXPECT_DOUBLE_EQ(0, sim.GetVelocity().value());
 }

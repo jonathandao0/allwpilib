@@ -16,14 +16,12 @@
 #include <cmath>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <Dbt.h>
 #include <Dshow.h>
 #include <Windows.h>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
 #include <wpi/ConvertUTF.h>
 #include <wpi/MemAlloc.h>
 #include <wpi/SmallString.h>
@@ -270,8 +268,9 @@ void UsbCameraImpl::DeviceDisconnect() {
 }
 
 static bool IsPercentageProperty(std::string_view name) {
-  if (wpi::starts_with(name, "raw_"))
+  if (wpi::starts_with(name, "raw_")) {
     name = wpi::substr(name, 4);
+  }
   return name == "Brightness" || name == "Contrast" || name == "Saturation" ||
          name == "Hue" || name == "Sharpness" || name == "Gain" ||
          name == "Exposure";
@@ -282,6 +281,8 @@ void UsbCameraImpl::ProcessFrame(IMFSample* videoSample,
   if (!videoSample) {
     return;
   }
+
+  auto currentTime = wpi::Now();
 
   ComPtr<IMFMediaBuffer> buf;
 
@@ -338,56 +339,9 @@ void UsbCameraImpl::ProcessFrame(IMFSample* videoSample,
     }
   }
 
-  cv::Mat tmpMat;
-  std::unique_ptr<Image> dest;
-  bool doFinalSet = true;
-
-  switch (mode.pixelFormat) {
-    case cs::VideoMode::PixelFormat::kMJPEG: {
-      // Special case
-      PutFrame(VideoMode::kMJPEG, mode.width, mode.height,
-               {reinterpret_cast<char*>(ptr), length}, wpi::Now());
-      doFinalSet = false;
-      break;
-    }
-    case cs::VideoMode::PixelFormat::kGray:
-      tmpMat = cv::Mat(mode.height, mode.width, CV_8UC1, ptr, pitch);
-      dest = AllocImage(VideoMode::kGray, tmpMat.cols, tmpMat.rows,
-                        tmpMat.total());
-      tmpMat.copyTo(dest->AsMat());
-      break;
-    case cs::VideoMode::PixelFormat::kY16:
-      tmpMat = cv::Mat(mode.height, mode.width, CV_8UC2, ptr, pitch);
-      dest =
-          AllocImage(VideoMode::kY16, tmpMat.cols, tmpMat.rows, tmpMat.total());
-      tmpMat.copyTo(dest->AsMat());
-      break;
-    case cs::VideoMode::PixelFormat::kBGR:
-      tmpMat = cv::Mat(mode.height, mode.width, CV_8UC3, ptr, pitch);
-      dest = AllocImage(VideoMode::kBGR, tmpMat.cols, tmpMat.rows,
-                        tmpMat.total() * 3);
-      tmpMat.copyTo(dest->AsMat());
-      break;
-    case cs::VideoMode::PixelFormat::kYUYV:
-      tmpMat = cv::Mat(mode.height, mode.width, CV_8UC2, ptr, pitch);
-      dest = AllocImage(VideoMode::kYUYV, tmpMat.cols, tmpMat.rows,
-                        tmpMat.total() * 2);
-      tmpMat.copyTo(dest->AsMat());
-      break;
-    case cs::VideoMode::PixelFormat::kUYVY:
-      tmpMat = cv::Mat(mode.height, mode.width, CV_8UC2, ptr, pitch);
-      dest = AllocImage(VideoMode::kUYVY, tmpMat.cols, tmpMat.rows,
-                        tmpMat.total() * 2);
-      tmpMat.copyTo(dest->AsMat());
-      break;
-    default:
-      doFinalSet = false;
-      break;
-  }
-
-  if (doFinalSet) {
-    PutFrame(std::move(dest), wpi::Now());
-  }
+  std::string_view data_view{reinterpret_cast<char*>(ptr), length};
+  SourceImpl::PutFrame(static_cast<VideoMode::PixelFormat>(mode.pixelFormat),
+                       mode.width, mode.height, data_view, currentTime);
 
   if (buffer2d) {
     buffer2d->Unlock2D();
@@ -479,8 +433,6 @@ static cs::VideoMode::PixelFormat GetFromGUID(const GUID& guid) {
     return cs::VideoMode::PixelFormat::kY16;
   } else if (IsEqualGUID(guid, MFVideoFormat_YUY2)) {
     return cs::VideoMode::PixelFormat::kYUYV;
-  } else if (IsEqualGUID(guid, MFVideoFormat_RGB24)) {
-    return cs::VideoMode::PixelFormat::kBGR;
   } else if (IsEqualGUID(guid, MFVideoFormat_MJPG)) {
     return cs::VideoMode::PixelFormat::kMJPEG;
   } else if (IsEqualGUID(guid, MFVideoFormat_RGB565)) {
@@ -498,7 +450,7 @@ bool UsbCameraImpl::DeviceConnect() {
   }
 
   if (m_connectVerbose) {
-    SINFO("Connecting to USB camera on {}", m_path);
+    SINFO("Attempting to connect to USB camera on {}", m_path);
   }
 
   SDEBUG3("opening device");
@@ -523,6 +475,10 @@ bool UsbCameraImpl::DeviceConnect() {
   if (!m_sourceReader) {
     m_mediaSource.Reset();
     return false;
+  }
+
+  if (m_connectVerbose) {
+    SINFO("Connected to USB camera on {}", m_path);
   }
 
   CS_Status st = 0;

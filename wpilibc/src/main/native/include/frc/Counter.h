@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include <hal/Counter.h>
 #include <hal/Types.h>
 #include <units/time.h>
 #include <wpi/sendable/Sendable.h>
@@ -47,8 +48,8 @@ class Counter : public CounterBase,
   /**
    * Create an instance of a counter where no sources are selected.
    *
-   * They all must be selected by calling functions to specify the upsource and
-   * the downsource independently.
+   * They all must be selected by calling functions to specify the up source and
+   * the down source independently.
    *
    * This creates a ChipObject counter and initializes status variables
    * appropriately.
@@ -142,13 +143,13 @@ class Counter : public CounterBase,
   Counter(EncodingType encodingType, std::shared_ptr<DigitalSource> upSource,
           std::shared_ptr<DigitalSource> downSource, bool inverted);
 
-  ~Counter() override;
-
   Counter(Counter&&) = default;
   Counter& operator=(Counter&&) = default;
 
+  ~Counter() override;
+
   /**
-   * Set the upsource for the counter as a digital input channel.
+   * Set the up source for the counter as a digital input channel.
    *
    * @param channel The DIO channel to use as the up source. 0-9 are on-board,
    *                10-25 are on the MXP
@@ -343,6 +344,34 @@ class Counter : public CounterBase,
 
   int GetFPGAIndex() const;
 
+  /**
+   * Set the distance per pulse for this counter. This sets the multiplier used
+   * to determine the distance driven based on the count value from the encoder.
+   * Set this value based on the Pulses per Revolution and factor in any gearing
+   * reductions. This distance can be in any units you like, linear or angular.
+   *
+   * @param distancePerPulse The scale factor that will be used to convert
+   * pulses to useful units.
+   */
+  void SetDistancePerPulse(double distancePerPulse);
+
+  /**
+   * Read the current scaled counter value. Read the value at this instant,
+   * scaled by the distance per pulse (defaults to 1).
+   *
+   * @return The distance since the last reset
+   */
+  double GetDistance() const;
+
+  /**
+   * Get the current rate of the Counter. Read the current rate of the counter
+   * accounting for the distance per pulse value. The default value for distance
+   * per pulse (1) yields units of pulses per second.
+   *
+   * @return The rate in units/sec
+   */
+  double GetRate() const;
+
   // CounterBase interface
   /**
    * Read the current counter value.
@@ -423,17 +452,21 @@ class Counter : public CounterBase,
   void InitSendable(wpi::SendableBuilder& builder) override;
 
  protected:
-  // Makes the counter count up.
+  /// Makes the counter count up.
   std::shared_ptr<DigitalSource> m_upSource;
 
-  // Makes the counter count down.
+  /// Makes the counter count down.
   std::shared_ptr<DigitalSource> m_downSource;
 
-  // The FPGA counter object
-  hal::Handle<HAL_CounterHandle> m_counter;
+  /// The FPGA counter object
+  hal::Handle<HAL_CounterHandle, HAL_FreeCounter> m_counter;
 
  private:
-  int m_index = 0;  // The index of this counter.
+  /// The index of this counter.
+  int m_index = 0;
+
+  /// Distance of travel for each tick.
+  double m_distancePerPulse = 1;
 
   friend class DigitalGlitchFilter;
 };

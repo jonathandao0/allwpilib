@@ -6,9 +6,6 @@ buildscript {
             url = 'https://frcmaven.wpi.edu/artifactory/ex-mvn'
         }
     }
-    dependencies {
-        classpath 'com.hubspot.jinjava:jinjava:2.6.0'
-    }
 }
 
 plugins {
@@ -20,10 +17,10 @@ plugins {
     id 'edu.wpi.first.GradleVsCode'
     id 'idea'
     id 'visual-studio'
-    id 'net.ltgt.errorprone' version '2.0.2' apply false
-    id 'com.github.johnrengelman.shadow' version '7.1.2' apply false
-    id 'com.diffplug.spotless' version '6.12.0' apply false
-    id 'com.github.spotbugs' version '5.0.8' apply false
+    id 'net.ltgt.errorprone' version '3.1.0' apply false
+    id 'com.gradleup.shadow' version '8.3.4' apply false
+    id 'com.diffplug.spotless' version '6.20.0' apply false
+    id 'com.github.spotbugs' version '6.0.2' apply false
 }
 
 wpilibVersioning.buildServerMode = project.hasProperty('buildServer')
@@ -48,6 +45,9 @@ buildScan {
 
     publishAlways()
 }
+
+import com.github.spotbugs.snom.Effort
+ext.spotbugsEffort = Effort.MAX
 
 ext.licenseFile = files("$rootDir/LICENSE.md", "$rootDir/ThirdPartyNotices.txt")
 
@@ -94,8 +94,8 @@ ext.addTaskToCopyAllOutputs = { task ->
         return
     }
     copyAllOutputs.dependsOn task
-    copyAllOutputs.inputs.file task.archivePath
-    copyAllOutputs.from task.archivePath
+    copyAllOutputs.inputs.file task.archiveFile
+    copyAllOutputs.from task.archiveFile
 }
 
 subprojects {
@@ -109,8 +109,10 @@ subprojects {
     }
 
     plugins.withType(JavaPlugin) {
-        sourceCompatibility = 11
-        targetCompatibility = 11
+        java {
+            sourceCompatibility = 17
+            targetCompatibility = 17
+        }
     }
 
     apply from: "${rootDir}/shared/java/javastyle.gradle"
@@ -126,6 +128,7 @@ subprojects {
 
     tasks.withType(JavaCompile) {
         options.compilerArgs.add '-XDstringConcat=inline'
+        options.encoding = 'UTF-8'
     }
 
     // Enables UTF-8 support in Javadoc
@@ -167,5 +170,5 @@ ext.getCurrentArch = {
 }
 
 wrapper {
-    gradleVersion = '7.5.1'
+    gradleVersion = '8.11'
 }

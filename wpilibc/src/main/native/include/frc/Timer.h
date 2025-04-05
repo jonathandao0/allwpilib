@@ -77,6 +77,14 @@ class Timer {
   void Start();
 
   /**
+   * Restart the timer by stopping the timer, if it is not already stopped,
+   * resetting the accumulated time, then starting the timer again. If you
+   * want an event to periodically reoccur at some time interval from the
+   * start time, consider using AdvanceIfElapsed() instead.
+   */
+  void Restart();
+
+  /**
    * Stop the timer.
    *
    * This computes the time as of now and clears the running flag, causing all
@@ -102,6 +110,23 @@ class Timer {
    * @return       True if the period has passed.
    */
   bool AdvanceIfElapsed(units::second_t period);
+
+  /**
+   * Whether the timer is currently running.
+   *
+   * @return true if running.
+   */
+  bool IsRunning() const;
+
+  /**
+   * Return the clock time in seconds. By default, the time is based on the FPGA
+   * hardware clock in seconds since the FPGA started. However, the return value
+   * of this method may be modified to use any time base, including
+   * non-monotonic time bases.
+   *
+   * @returns Robot running time in seconds.
+   */
+  static units::second_t GetTimestamp();
 
   /**
    * Return the FPGA system clock time in seconds.

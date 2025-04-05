@@ -9,15 +9,22 @@ import static edu.wpi.first.util.ErrorMessages.requireNonNullParam;
 
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.math.trajectory.TrapezoidProfile.State;
 
 /**
  * A subsystem that uses a {@link ProfiledPIDController} to control an output. The controller is run
  * synchronously from the subsystem's periodic() method.
  *
  * <p>This class is provided by the NewCommands VendorDep
+ *
+ * @deprecated Use a ProfiledPIDController instead
  */
+@Deprecated(forRemoval = true, since = "2025")
 public abstract class ProfiledPIDSubsystem extends SubsystemBase {
+  /** Profiled PID controller. */
   protected final ProfiledPIDController m_controller;
+
+  /** Whether the profiled PID controller output is enabled. */
   protected boolean m_enabled;
 
   /**
@@ -47,6 +54,11 @@ public abstract class ProfiledPIDSubsystem extends SubsystemBase {
     }
   }
 
+  /**
+   * Returns the ProfiledPIDController.
+   *
+   * @return The controller.
+   */
   public ProfiledPIDController getController() {
     return m_controller;
   }
@@ -56,7 +68,7 @@ public abstract class ProfiledPIDSubsystem extends SubsystemBase {
    *
    * @param goal The goal state for the subsystem's motion profile.
    */
-  public void setGoal(TrapezoidProfile.State goal) {
+  public final void setGoal(TrapezoidProfile.State goal) {
     m_controller.setGoal(goal);
   }
 
@@ -65,7 +77,7 @@ public abstract class ProfiledPIDSubsystem extends SubsystemBase {
    *
    * @param goal The goal position for the subsystem's motion profile.
    */
-  public void setGoal(double goal) {
+  public final void setGoal(double goal) {
     setGoal(new TrapezoidProfile.State(goal, 0));
   }
 

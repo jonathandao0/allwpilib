@@ -5,28 +5,56 @@
 package edu.wpi.first.wpilibj2.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-public interface SingleCompositionTestBase<T extends Command> {
-  T composeSingle(Command member);
+public abstract class SingleCompositionTestBase<T extends Command> extends CommandTestBase {
+  abstract T composeSingle(Command member);
 
   @EnumSource(Command.InterruptionBehavior.class)
   @ParameterizedTest
-  default void interruptible(Command.InterruptionBehavior interruptionBehavior) {
-    var command =
-        composeSingle(
-            new WaitUntilCommand(() -> false).withInterruptBehavior(interruptionBehavior));
+  void interruptible(Command.InterruptionBehavior interruptionBehavior) {
+    var command = composeSingle(Commands.idle().withInterruptBehavior(interruptionBehavior));
     assertEquals(interruptionBehavior, command.getInterruptionBehavior());
   }
 
   @ValueSource(booleans = {true, false})
   @ParameterizedTest
-  default void runWhenDisabled(boolean runsWhenDisabled) {
-    var command =
-        composeSingle(new WaitUntilCommand(() -> false).ignoringDisable(runsWhenDisabled));
+  void runWhenDisabled(boolean runsWhenDisabled) {
+    var command = composeSingle(Commands.idle().ignoringDisable(runsWhenDisabled));
     assertEquals(runsWhenDisabled, command.runsWhenDisabled());
+  }
+
+  @Test
+  void commandInOtherCompositionTest() {
+    var command = Commands.none();
+    new WrapperCommand(command) {};
+    assertThrows(IllegalArgumentException.class, () -> composeSingle(command));
+  }
+
+  @Test
+  void commandInMultipleCompositionsTest() {
+    var command = Commands.none();
+    composeSingle(command);
+    assertThrows(IllegalArgumentException.class, () -> composeSingle(command));
+  }
+
+  @Test
+  void composeThenScheduleTest() {
+    var command = Commands.none();
+    composeSingle(command);
+    assertThrows(
+        IllegalArgumentException.class, () -> CommandScheduler.getInstance().schedule(command));
+  }
+
+  @Test
+  void scheduleThenComposeTest() {
+    var command = Commands.idle();
+    CommandScheduler.getInstance().schedule(command);
+    assertThrows(IllegalArgumentException.class, () -> composeSingle(command));
   }
 }

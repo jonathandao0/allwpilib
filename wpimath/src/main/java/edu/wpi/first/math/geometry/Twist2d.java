@@ -4,15 +4,19 @@
 
 package edu.wpi.first.math.geometry;
 
+import edu.wpi.first.math.geometry.proto.Twist2dProto;
+import edu.wpi.first.math.geometry.struct.Twist2dStruct;
+import edu.wpi.first.util.protobuf.ProtobufSerializable;
+import edu.wpi.first.util.struct.StructSerializable;
 import java.util.Objects;
 
 /**
  * A change in distance along a 2D arc since the last pose update. We can use ideas from
- * differential calculus to create new Pose2d objects from a Twist2d and vise versa.
+ * differential calculus to create new Pose2d objects from a Twist2d and vice versa.
  *
  * <p>A Twist can be used to represent a difference between two poses.
  */
-public class Twist2d {
+public class Twist2d implements ProtobufSerializable, StructSerializable {
   /** Linear "dx" component. */
   public double dx;
 
@@ -22,6 +26,7 @@ public class Twist2d {
   /** Angular "dtheta" component (radians). */
   public double dtheta;
 
+  /** Default constructor. */
   public Twist2d() {}
 
   /**
@@ -50,16 +55,20 @@ public class Twist2d {
    */
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof Twist2d) {
-      return Math.abs(((Twist2d) obj).dx - dx) < 1E-9
-          && Math.abs(((Twist2d) obj).dy - dy) < 1E-9
-          && Math.abs(((Twist2d) obj).dtheta - dtheta) < 1E-9;
-    }
-    return false;
+    return obj instanceof Twist2d other
+        && Math.abs(other.dx - dx) < 1E-9
+        && Math.abs(other.dy - dy) < 1E-9
+        && Math.abs(other.dtheta - dtheta) < 1E-9;
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(dx, dy, dtheta);
   }
+
+  /** Twist2d protobuf for serialization. */
+  public static final Twist2dProto proto = new Twist2dProto();
+
+  /** Twist2d struct for serialization. */
+  public static final Twist2dStruct struct = new Twist2dStruct();
 }

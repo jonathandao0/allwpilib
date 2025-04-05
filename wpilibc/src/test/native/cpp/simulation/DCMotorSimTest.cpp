@@ -2,6 +2,8 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
+#include <gtest/gtest.h>
+
 #include "frc/Encoder.h"
 #include "frc/RobotController.h"
 #include "frc/controller/PIDController.h"
@@ -10,12 +12,13 @@
 #include "frc/simulation/DCMotorSim.h"
 #include "frc/simulation/EncoderSim.h"
 #include "frc/simulation/RoboRioSim.h"
-#include "gtest/gtest.h"
+#include "frc/system/plant/LinearSystemId.h"
 
 TEST(DCMotorSimTest, VoltageSteadyState) {
   frc::DCMotor gearbox = frc::DCMotor::NEO(1);
-  frc::sim::DCMotorSim sim{gearbox, 1.0,
-                           units::kilogram_square_meter_t{0.0005}};
+  auto plant = frc::LinearSystemId::DCMotorSystem(
+      frc::DCMotor::NEO(1), units::kilogram_square_meter_t{0.0005}, 1.0);
+  frc::sim::DCMotorSim sim{plant, gearbox};
 
   frc::Encoder encoder{0, 1};
   frc::sim::EncoderSim encoderSim{encoder};
@@ -59,10 +62,11 @@ TEST(DCMotorSimTest, VoltageSteadyState) {
 
 TEST(DCMotorSimTest, PositionFeedbackControl) {
   frc::DCMotor gearbox = frc::DCMotor::NEO(1);
-  frc::sim::DCMotorSim sim{gearbox, 1.0,
-                           units::kilogram_square_meter_t{0.0005}};
+  auto plant = frc::LinearSystemId::DCMotorSystem(
+      frc::DCMotor::NEO(1), units::kilogram_square_meter_t{0.0005}, 1.0);
+  frc::sim::DCMotorSim sim{plant, gearbox};
 
-  frc2::PIDController controller{0.04, 0.0, 0.001};
+  frc::PIDController controller{0.04, 0.0, 0.001};
 
   frc::Encoder encoder{0, 1};
   frc::sim::EncoderSim encoderSim{encoder};

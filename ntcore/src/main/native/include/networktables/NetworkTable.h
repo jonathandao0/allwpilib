@@ -14,8 +14,11 @@
 
 #include <wpi/StringMap.h>
 #include <wpi/mutex.h>
+#include <wpi/protobuf/Protobuf.h>
+#include <wpi/struct/Struct.h>
 
 #include "networktables/NetworkTableEntry.h"
+#include "networktables/Topic.h"
 #include "ntcore_c.h"
 
 namespace nt {
@@ -29,9 +32,17 @@ class FloatTopic;
 class IntegerArrayTopic;
 class IntegerTopic;
 class NetworkTableInstance;
+template <wpi::ProtobufSerializable T>
+class ProtobufTopic;
 class RawTopic;
 class StringArrayTopic;
 class StringTopic;
+template <typename T, typename... I>
+  requires wpi::StructSerializable<T, I...>
+class StructArrayTopic;
+template <typename T, typename... I>
+  requires wpi::StructSerializable<T, I...>
+class StructTopic;
 class Topic;
 
 /**
@@ -221,6 +232,44 @@ class NetworkTable final {
   StringArrayTopic GetStringArrayTopic(std::string_view name) const;
 
   /**
+   * Gets a protobuf serialized value topic.
+   *
+   * @param name topic name
+   * @return Topic
+   */
+  template <wpi::ProtobufSerializable T>
+  ProtobufTopic<T> GetProtobufTopic(std::string_view name) const {
+    return ProtobufTopic<T>{GetTopic(name)};
+  }
+
+  /**
+   * Gets a raw struct serialized value topic.
+   *
+   * @param name topic name
+   * @param info optional struct type info
+   * @return Topic
+   */
+  template <typename T, typename... I>
+    requires wpi::StructSerializable<T, I...>
+  StructTopic<T, I...> GetStructTopic(std::string_view name, I... info) const {
+    return StructTopic<T, I...>{GetTopic(name), std::move(info)...};
+  }
+
+  /**
+   * Gets a raw struct serialized array topic.
+   *
+   * @param name topic name
+   * @param info optional struct type info
+   * @return Topic
+   */
+  template <typename T, typename... I>
+    requires wpi::StructSerializable<T, I...>
+  StructArrayTopic<T, I...> GetStructArrayTopic(std::string_view name,
+                                                I... info) const {
+    return StructArrayTopic<T, I...>{GetTopic(name), std::move(info)...};
+  }
+
+  /**
    * Returns the table at the specified key. If there is no table at the
    * specified key, it will create a new table
    *
@@ -312,11 +361,11 @@ class NetworkTable final {
   bool PutNumber(std::string_view key, double value);
 
   /**
-   * Gets the current value in the table, setting it if it does not exist.
+   * Set Default Entry Value
    *
    * @param key the key
    * @param defaultValue the default value to set if key doesn't exist.
-   * @returns False if the table key exists with a different type
+   * @returns True if the table key did not already exist, otherwise False
    */
   bool SetDefaultNumber(std::string_view key, double defaultValue);
 
@@ -340,11 +389,11 @@ class NetworkTable final {
   bool PutString(std::string_view key, std::string_view value);
 
   /**
-   * Gets the current value in the table, setting it if it does not exist.
+   * Set Default Entry Value
    *
    * @param key the key
    * @param defaultValue the default value to set if key doesn't exist.
-   * @returns False if the table key exists with a different type
+   * @returns True if the table key did not already exist, otherwise False
    */
   bool SetDefaultString(std::string_view key, std::string_view defaultValue);
 
@@ -370,11 +419,11 @@ class NetworkTable final {
   bool PutBoolean(std::string_view key, bool value);
 
   /**
-   * Gets the current value in the table, setting it if it does not exist.
+   * Set Default Entry Value
    *
    * @param key the key
    * @param defaultValue the default value to set if key doesn't exist.
-   * @returns False if the table key exists with a different type
+   * @returns True if the table key did not already exist, otherwise False
    */
   bool SetDefaultBoolean(std::string_view key, bool defaultValue);
 
@@ -403,11 +452,11 @@ class NetworkTable final {
   bool PutBooleanArray(std::string_view key, std::span<const int> value);
 
   /**
-   * Gets the current value in the table, setting it if it does not exist.
+   * Set Default Entry Value
    *
    * @param key the key
    * @param defaultValue the default value to set if key doesn't exist.
-   * @return False if the table key exists with a different type
+   * @return True if the table key did not already exist, otherwise False
    */
   bool SetDefaultBooleanArray(std::string_view key,
                               std::span<const int> defaultValue);
@@ -441,11 +490,11 @@ class NetworkTable final {
   bool PutNumberArray(std::string_view key, std::span<const double> value);
 
   /**
-   * Gets the current value in the table, setting it if it does not exist.
+   * Set Default Entry Value
    *
    * @param key the key
    * @param defaultValue the default value to set if key doesn't exist.
-   * @returns False if the table key exists with a different type
+   * @returns True if the table key did not already exist, otherwise False
    */
   bool SetDefaultNumberArray(std::string_view key,
                              std::span<const double> defaultValue);
@@ -475,11 +524,11 @@ class NetworkTable final {
   bool PutStringArray(std::string_view key, std::span<const std::string> value);
 
   /**
-   * Gets the current value in the table, setting it if it does not exist.
+   * Set Default Entry Value
    *
    * @param key the key
    * @param defaultValue the default value to set if key doesn't exist.
-   * @returns False if the table key exists with a different type
+   * @returns True if the table key did not already exist, otherwise False
    */
   bool SetDefaultStringArray(std::string_view key,
                              std::span<const std::string> defaultValue);
@@ -509,11 +558,11 @@ class NetworkTable final {
   bool PutRaw(std::string_view key, std::span<const uint8_t> value);
 
   /**
-   * Gets the current value in the table, setting it if it does not exist.
+   * Set Default Entry Value
    *
    * @param key the key
    * @param defaultValue the default value to set if key doesn't exist.
-   * @return False if the table key exists with a different type
+   * @return True if the table key did not already exist, otherwise False
    */
   bool SetDefaultRaw(std::string_view key,
                      std::span<const uint8_t> defaultValue);
@@ -543,11 +592,11 @@ class NetworkTable final {
   bool PutValue(std::string_view key, const Value& value);
 
   /**
-   * Gets the current value in the table, setting it if it does not exist.
+   * Set Default Entry Value.
    *
    * @param key the key
    * @param defaultValue the default value to set if key doesn't exist.
-   * @return False if the table key exists with a different type
+   * @return True if the table key did not already exist, otherwise False
    */
   bool SetDefaultValue(std::string_view key, const Value& defaultValue);
 

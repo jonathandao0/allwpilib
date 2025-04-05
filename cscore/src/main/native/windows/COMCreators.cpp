@@ -13,12 +13,12 @@
 
 // https://github.com/opencv/opencv/blob/master/modules/videoio/src/cap_msmf.cpp
 
-#include <mfidl.h>
-#include <mfapi.h>
 #include <Dbt.h>
 #include <ks.h>
 #include <ksmedia.h>
 #include <mfreadwrite.h>
+
+#include <memory>
 
 #include "COMCreators.h"
 #include "ComPtr.h"
@@ -78,7 +78,7 @@ STDMETHODIMP SourceReaderCB::OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex,
     return S_OK;
   if (SUCCEEDED(hrStatus)) {
     if (pSample) {
-      // Prcoess sample
+      // Process sample
       source->ProcessFrame(pSample, m_mode);
       // DO NOT release the frame
     }

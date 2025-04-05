@@ -4,6 +4,7 @@
 
 package edu.wpi.first.math.geometry;
 
+import static edu.wpi.first.units.Units.Inches;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -14,6 +15,15 @@ import org.junit.jupiter.api.Test;
 
 class Translation3dTest {
   private static final double kEpsilon = 1E-9;
+
+  @Test
+  void testNewWithMeasures() {
+    var translation = new Translation3d(Inches.of(6), Inches.of(8), Inches.of(16));
+
+    assertEquals(0.1524, translation.getX(), kEpsilon);
+    assertEquals(0.2032, translation.getY(), kEpsilon);
+    assertEquals(0.4064, translation.getZ(), kEpsilon);
+  }
 
   @Test
   void testSum() {
@@ -65,6 +75,40 @@ class Translation3dTest {
     assertAll(
         () -> assertEquals(-2.0, rotated3.getX(), kEpsilon),
         () -> assertEquals(1.0, rotated3.getY(), kEpsilon),
+        () -> assertEquals(3.0, rotated3.getZ(), kEpsilon));
+  }
+
+  @Test
+  void testRotateAround() {
+    var xAxis = VecBuilder.fill(1.0, 0.0, 0.0);
+    var yAxis = VecBuilder.fill(0.0, 1.0, 0.0);
+    var zAxis = VecBuilder.fill(0.0, 0.0, 1.0);
+
+    var translation = new Translation3d(1.0, 2.0, 3.0);
+    var around = new Translation3d(3.0, 2.0, 1.0);
+
+    var rotated1 =
+        translation.rotateAround(around, new Rotation3d(xAxis, Units.degreesToRadians(90.0)));
+
+    assertAll(
+        () -> assertEquals(1.0, rotated1.getX(), kEpsilon),
+        () -> assertEquals(0.0, rotated1.getY(), kEpsilon),
+        () -> assertEquals(1.0, rotated1.getZ(), kEpsilon));
+
+    var rotated2 =
+        translation.rotateAround(around, new Rotation3d(yAxis, Units.degreesToRadians(90.0)));
+
+    assertAll(
+        () -> assertEquals(5.0, rotated2.getX(), kEpsilon),
+        () -> assertEquals(2.0, rotated2.getY(), kEpsilon),
+        () -> assertEquals(3.0, rotated2.getZ(), kEpsilon));
+
+    var rotated3 =
+        translation.rotateAround(around, new Rotation3d(zAxis, Units.degreesToRadians(90.0)));
+
+    assertAll(
+        () -> assertEquals(3.0, rotated3.getX(), kEpsilon),
+        () -> assertEquals(0.0, rotated3.getY(), kEpsilon),
         () -> assertEquals(3.0, rotated3.getZ(), kEpsilon));
   }
 
@@ -149,5 +193,17 @@ class Translation3dTest {
         () -> assertEquals(1.0, two.getX(), kEpsilon),
         () -> assertEquals(Math.sqrt(3.0), two.getY(), kEpsilon),
         () -> assertEquals(0.0, two.getZ(), kEpsilon));
+  }
+
+  @Test
+  void testToVector() {
+    var vec = VecBuilder.fill(1.0, 2.0, 3.0);
+    var translation = new Translation3d(vec);
+
+    assertEquals(vec.get(0), translation.getX());
+    assertEquals(vec.get(1), translation.getY());
+    assertEquals(vec.get(2), translation.getZ());
+
+    assertEquals(vec, translation.toVector());
   }
 }

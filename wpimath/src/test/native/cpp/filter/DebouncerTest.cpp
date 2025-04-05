@@ -2,10 +2,10 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
+#include <gtest/gtest.h>
 #include <wpi/timestamp.h>
 
 #include "frc/filter/Debouncer.h"
-#include "gtest/gtest.h"
 #include "units/time.h"
 
 static units::second_t now = 0_s;
@@ -55,4 +55,21 @@ TEST_F(DebouncerTest, DebounceBoth) {
   now += 1_s;
 
   EXPECT_FALSE(debouncer.Calculate(false));
+}
+
+TEST_F(DebouncerTest, DebounceParams) {
+  frc::Debouncer debouncer{20_ms, frc::Debouncer::DebounceType::kBoth};
+
+  EXPECT_TRUE(debouncer.GetDebounceTime() == 20_ms);
+  EXPECT_TRUE(debouncer.GetDebounceType() ==
+              frc::Debouncer::DebounceType::kBoth);
+
+  debouncer.SetDebounceTime(100_ms);
+
+  EXPECT_TRUE(debouncer.GetDebounceTime() == 100_ms);
+
+  debouncer.SetDebounceType(frc::Debouncer::DebounceType::kFalling);
+
+  EXPECT_TRUE(debouncer.GetDebounceType() ==
+              frc::Debouncer::DebounceType::kFalling);
 }

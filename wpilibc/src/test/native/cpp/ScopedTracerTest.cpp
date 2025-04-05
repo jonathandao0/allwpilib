@@ -4,13 +4,13 @@
 
 #include <string_view>
 
+#include <gtest/gtest.h>
 #include <wpi/SmallString.h>
 #include <wpi/StringExtras.h>
 #include <wpi/raw_ostream.h>
 
 #include "frc/ScopedTracer.h"
 #include "frc/simulation/SimHooks.h"
-#include "gtest/gtest.h"
 
 TEST(ScopedTracerTest, Timing) {
   wpi::SmallString<128> buf;
@@ -24,5 +24,5 @@ TEST(ScopedTracerTest, Timing) {
   frc::sim::ResumeTiming();
 
   std::string_view out = os.str();
-  EXPECT_TRUE(wpi::starts_with(out, "	timing_test: 1.5"));
+  EXPECT_TRUE(wpi::starts_with(out, "\ttiming_test: 1.5"));
 }

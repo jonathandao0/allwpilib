@@ -4,14 +4,15 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
-#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include <wpi/protobuf/Protobuf.h>
+#include <wpi/struct/Struct.h>
 
 #include "networktables/NetworkTable.h"
 #include "networktables/NetworkTableEntry.h"
@@ -29,9 +30,17 @@ class FloatTopic;
 class IntegerArrayTopic;
 class IntegerTopic;
 class MultiSubscriber;
+template <wpi::ProtobufSerializable T>
+class ProtobufTopic;
 class RawTopic;
 class StringArrayTopic;
 class StringTopic;
+template <typename T, typename... I>
+  requires wpi::StructSerializable<T, I...>
+class StructArrayTopic;
+template <typename T, typename... I>
+  requires wpi::StructSerializable<T, I...>
+class StructTopic;
 class Subscriber;
 class Topic;
 
@@ -98,14 +107,14 @@ class NetworkTableInstance final {
   /**
    * Construct invalid instance.
    */
-  NetworkTableInstance() noexcept;
+  NetworkTableInstance() noexcept = default;
 
   /**
    * Construct from native handle.
    *
-   * @param inst Native handle
+   * @param handle Native handle
    */
-  explicit NetworkTableInstance(NT_Inst inst) noexcept;
+  explicit NetworkTableInstance(NT_Inst handle) noexcept : m_handle{handle} {}
 
   /**
    * Determines if the native handle is valid.
@@ -119,28 +128,37 @@ class NetworkTableInstance final {
    *
    * @return Global default instance
    */
-  static NetworkTableInstance GetDefault();
+  static NetworkTableInstance GetDefault() {
+    return NetworkTableInstance{GetDefaultInstance()};
+  }
 
   /**
    * Create an instance.
    *
    * @return Newly created instance
    */
-  static NetworkTableInstance Create();
+  static NetworkTableInstance Create() {
+    return NetworkTableInstance{CreateInstance()};
+  }
 
   /**
    * Destroys an instance (note: this has global effect).
    *
    * @param inst Instance
    */
-  static void Destroy(NetworkTableInstance& inst);
+  static void Destroy(NetworkTableInstance& inst) {
+    if (inst.m_handle != 0) {
+      DestroyInstance(inst.m_handle);
+      inst.m_handle = 0;
+    }
+  }
 
   /**
    * Gets the native handle for the entry.
    *
    * @return Native handle
    */
-  NT_Inst GetHandle() const;
+  NT_Inst GetHandle() const { return m_handle; }
 
   /**
    * Gets a "generic" (untyped) topic.
@@ -239,13 +257,54 @@ class NetworkTableInstance final {
   StringArrayTopic GetStringArrayTopic(std::string_view name) const;
 
   /**
+   * Gets a protobuf serialized value topic.
+   *
+   * @param name topic name
+   * @return Topic
+   */
+  template <wpi::ProtobufSerializable T>
+  ProtobufTopic<T> GetProtobufTopic(std::string_view name) const {
+    return ProtobufTopic<T>{GetTopic(name)};
+  }
+
+  /**
+   * Gets a raw struct serialized value topic.
+   *
+   * @param name topic name
+   * @param info optional struct type info
+   * @return Topic
+   */
+  template <typename T, typename... I>
+    requires wpi::StructSerializable<T, I...>
+  StructTopic<T, I...> GetStructTopic(std::string_view name, I... info) const {
+    return StructTopic<T, I...>{GetTopic(name), std::move(info)...};
+  }
+
+  /**
+   * Gets a raw struct serialized array topic.
+   *
+   * @param name topic name
+   * @param info optional struct type info
+   * @return Topic
+   */
+  template <typename T, typename... I>
+    requires wpi::StructSerializable<T, I...>
+  StructArrayTopic<T, I...> GetStructArrayTopic(std::string_view name,
+                                                I... info) const {
+    return StructArrayTopic<T, I...>{GetTopic(name), std::move(info)...};
+  }
+
+  /**
    * Get Published Topics.
    *
    * Returns an array of topics.
    *
    * @return Array of topics.
    */
-  std::vector<Topic> GetTopics();
+  std::vector<Topic> GetTopics() {
+    auto handles = ::nt::GetTopics(m_handle, "", 0);
+    return {handles.begin(), handles.end()};
+  }
 
   /**
    * Get Published Topics.
@@ -257,7 +316,10 @@ class NetworkTableInstance final {
    *                starts with this string are returned
    * @return Array of topics.
    */
-  std::vector<Topic> GetTopics(std::string_view prefix);
+  std::vector<Topic> GetTopics(std::string_view prefix) {
+    auto handles = ::nt::GetTopics(m_handle, prefix, 0);
+    return {handles.begin(), handles.end()};
+  }
 
   /**
    * Get Published Topics.
@@ -271,7 +333,10 @@ class NetworkTableInstance final {
    *                as a "don't care"
    * @return Array of topics.
    */
-  std::vector<Topic> GetTopics(std::string_view prefix, unsigned int types);
+  std::vector<Topic> GetTopics(std::string_view prefix, unsigned int types) {
+    auto handles = ::nt::GetTopics(m_handle, prefix, types);
+    return {handles.begin(), handles.end()};
+  }
 
   /**
    * Get Published Topics.
@@ -285,7 +350,10 @@ class NetworkTableInstance final {
    * @return Array of topic handles.
    */
   std::vector<Topic> GetTopics(std::string_view prefix,
-                               std::span<std::string_view> types);
+                               std::span<std::string_view> types) {
+    auto handles = ::nt::GetTopics(m_handle, prefix, types);
+    return {handles.begin(), handles.end()};
+  }
 
   /**
    * Get Topic Information about multiple topics.
@@ -294,7 +362,9 @@ class NetworkTableInstance final {
    *
    * @return Array of topic information.
    */
-  std::vector<TopicInfo> GetTopicInfo();
+  std::vector<TopicInfo> GetTopicInfo() {
+    return ::nt::GetTopicInfo(m_handle, "", 0);
+  }
 
   /**
    * Get Topic Information about multiple topics.
@@ -307,7 +377,9 @@ class NetworkTableInstance final {
    *                starts with this string are returned
    * @return Array of topic information.
    */
-  std::vector<TopicInfo> GetTopicInfo(std::string_view prefix);
+  std::vector<TopicInfo> GetTopicInfo(std::string_view prefix) {
+    return ::nt::GetTopicInfo(m_handle, prefix, 0);
+  }
 
   /**
    * Get Topic Information about multiple topics.
@@ -323,7 +395,9 @@ class NetworkTableInstance final {
    * @return Array of topic information.
    */
   std::vector<TopicInfo> GetTopicInfo(std::string_view prefix,
-                                      unsigned int types);
+                                      unsigned int types) {
+    return ::nt::GetTopicInfo(m_handle, prefix, types);
+  }
 
   /**
    * Get Topic Information about multiple topics.
@@ -338,7 +412,9 @@ class NetworkTableInstance final {
    * @return Array of topic information.
    */
   std::vector<TopicInfo> GetTopicInfo(std::string_view prefix,
-                                      std::span<std::string_view> types);
+                                      std::span<std::string_view> types) {
+    return ::nt::GetTopicInfo(m_handle, prefix, types);
+  }
 
   /**
    * Gets the entry for a key.
@@ -346,7 +422,9 @@ class NetworkTableInstance final {
    * @param name Key
    * @return Network table entry.
    */
-  NetworkTableEntry GetEntry(std::string_view name);
+  NetworkTableEntry GetEntry(std::string_view name) {
+    return NetworkTableEntry{::nt::GetEntry(m_handle, name)};
+  }
 
   /**
    * Gets the table with the specified key.
@@ -366,7 +444,9 @@ class NetworkTableInstance final {
    *
    * @param listener Listener handle to remove
    */
-  static void RemoveListener(NT_Listener listener);
+  static void RemoveListener(NT_Listener listener) {
+    ::nt::RemoveListener(listener);
+  }
 
   /**
    * Wait for the listener queue to be empty. This is primarily
@@ -378,7 +458,9 @@ class NetworkTableInstance final {
    *                a negative value to block indefinitely
    * @return False if timed out, otherwise true.
    */
-  bool WaitForListenerQueue(double timeout);
+  bool WaitForListenerQueue(double timeout) {
+    return ::nt::WaitForListenerQueue(m_handle, timeout);
+  }
 
   /**
    * Add a connection listener. The callback function is called asynchronously
@@ -390,7 +472,12 @@ class NetworkTableInstance final {
    * @return Listener handle
    */
   NT_Listener AddConnectionListener(bool immediate_notify,
-                                    ListenerCallback callback) const;
+                                    ListenerCallback callback) const {
+    return ::nt::AddListener(
+        m_handle,
+        NT_EVENT_CONNECTION | (immediate_notify ? NT_EVENT_IMMEDIATE : 0),
+        std::move(callback));
+  }
 
   /**
    * Add a time synchronization listener. The callback function is called
@@ -404,7 +491,12 @@ class NetworkTableInstance final {
    * @return Listener handle
    */
   NT_Listener AddTimeSyncListener(bool immediate_notify,
-                                  ListenerCallback callback) const;
+                                  ListenerCallback callback) const {
+    return ::nt::AddListener(
+        m_handle,
+        NT_EVENT_TIMESYNC | (immediate_notify ? NT_EVENT_IMMEDIATE : 0),
+        std::move(callback));
+  }
 
   /**
    * Add a listener for changes on a particular topic. The callback
@@ -480,7 +572,10 @@ class NetworkTableInstance final {
    * @return Listener handle
    */
   NT_Listener AddListener(std::span<const std::string_view> prefixes,
-                          int eventMask, ListenerCallback listener);
+                          int eventMask, ListenerCallback listener) {
+    return ::nt::AddListener(m_handle, prefixes, eventMask,
+                             std::move(listener));
+  }
 
   /** @} */
 
@@ -494,20 +589,20 @@ class NetworkTableInstance final {
    *
    * @return Bitmask of NetworkMode.
    */
-  unsigned int GetNetworkMode() const;
+  unsigned int GetNetworkMode() const { return ::nt::GetNetworkMode(m_handle); }
 
   /**
    * Starts local-only operation.  Prevents calls to StartServer or StartClient
    * from taking effect.  Has no effect if StartServer or StartClient
    * has already been called.
    */
-  void StartLocal();
+  void StartLocal() { ::nt::StartLocal(m_handle); }
 
   /**
    * Stops local-only operation.  StartServer or StartClient can be called after
    * this call to start a server or client.
    */
-  void StopLocal();
+  void StopLocal() { ::nt::StopLocal(m_handle); }
 
   /**
    * Starts a server using the specified filename, listening address, and port.
@@ -522,12 +617,14 @@ class NetworkTableInstance final {
   void StartServer(std::string_view persist_filename = "networktables.json",
                    const char* listen_address = "",
                    unsigned int port3 = kDefaultPort3,
-                   unsigned int port4 = kDefaultPort4);
+                   unsigned int port4 = kDefaultPort4) {
+    ::nt::StartServer(m_handle, persist_filename, listen_address, port3, port4);
+  }
 
   /**
    * Stops the server if it is running.
    */
-  void StopServer();
+  void StopServer() { ::nt::StopServer(m_handle); }
 
   /**
    * Starts a NT3 client.  Use SetServer or SetServerTeam to set the server name
@@ -535,7 +632,9 @@ class NetworkTableInstance final {
    *
    * @param identity  network identity to advertise (cannot be empty string)
    */
-  void StartClient3(std::string_view identity);
+  void StartClient3(std::string_view identity) {
+    ::nt::StartClient3(m_handle, identity);
+  }
 
   /**
    * Starts a NT4 client.  Use SetServer or SetServerTeam to set the server name
@@ -543,20 +642,24 @@ class NetworkTableInstance final {
    *
    * @param identity  network identity to advertise (cannot be empty string)
    */
-  void StartClient4(std::string_view identity);
+  void StartClient4(std::string_view identity) {
+    ::nt::StartClient4(m_handle, identity);
+  }
 
   /**
    * Stops the client if it is running.
    */
-  void StopClient();
+  void StopClient() { ::nt::StopClient(m_handle); }
 
   /**
    * Sets server address and port for client (without restarting client).
    *
-   * @param server_name server name (UTF-8 string, null terminated)
+   * @param server_name server name (UTF-8 string)
    * @param port        port to communicate over (0 = default)
    */
-  void SetServer(const char* server_name, unsigned int port = 0);
+  void SetServer(std::string_view server_name, unsigned int port = 0) {
+    ::nt::SetServer(m_handle, server_name, port);
+  }
 
   /**
    * Sets server addresses and ports for client (without restarting client).
@@ -565,7 +668,9 @@ class NetworkTableInstance final {
    * @param servers   array of server address and port pairs
    */
   void SetServer(
-      std::span<const std::pair<std::string_view, unsigned int>> servers);
+      std::span<const std::pair<std::string_view, unsigned int>> servers) {
+    ::nt::SetServer(m_handle, servers);
+  }
 
   /**
    * Sets server addresses and port for client (without restarting client).
@@ -584,7 +689,15 @@ class NetworkTableInstance final {
    * @param team        team number
    * @param port        port to communicate over (0 = default)
    */
-  void SetServerTeam(unsigned int team, unsigned int port = 0);
+  void SetServerTeam(unsigned int team, unsigned int port = 0) {
+    ::nt::SetServerTeam(m_handle, team, port);
+  }
+
+  /**
+   * Disconnects the client if it's running and connected. This will
+   * automatically start reconnection attempts to the current server list.
+   */
+  void Disconnect() { ::nt::Disconnect(m_handle); }
 
   /**
    * Starts requesting server address from Driver Station.
@@ -593,18 +706,20 @@ class NetworkTableInstance final {
    *
    * @param port server port to use in combination with IP from DS (0 = default)
    */
-  void StartDSClient(unsigned int port = 0);
+  void StartDSClient(unsigned int port = 0) {
+    ::nt::StartDSClient(m_handle, port);
+  }
 
   /**
    * Stops requesting server address from Driver Station.
    */
-  void StopDSClient();
+  void StopDSClient() { ::nt::StopDSClient(m_handle); }
 
   /**
    * Flushes all updated values immediately to the local client/server. This
    * does not flush to the network.
    */
-  void FlushLocal() const;
+  void FlushLocal() const { ::nt::FlushLocal(m_handle); }
 
   /**
    * Flushes all updated values immediately to the network.
@@ -612,7 +727,7 @@ class NetworkTableInstance final {
    * This is primarily useful for synchronizing network updates with
    * user code.
    */
-  void Flush() const;
+  void Flush() const { ::nt::Flush(m_handle); }
 
   /**
    * Get information on the currently established network connections.
@@ -620,14 +735,16 @@ class NetworkTableInstance final {
    *
    * @return array of connection information
    */
-  std::vector<ConnectionInfo> GetConnections() const;
+  std::vector<ConnectionInfo> GetConnections() const {
+    return ::nt::GetConnections(m_handle);
+  }
 
   /**
    * Return whether or not the instance is connected to another node.
    *
    * @return True if connected.
    */
-  bool IsConnected() const;
+  bool IsConnected() const { return ::nt::IsConnected(m_handle); }
 
   /**
    * Get the time offset between server time and local time. Add this value to
@@ -640,7 +757,9 @@ class NetworkTableInstance final {
    *
    * @return Time offset in microseconds (optional)
    */
-  std::optional<int64_t> GetServerTimeOffset() const;
+  std::optional<int64_t> GetServerTimeOffset() const {
+    return ::nt::GetServerTimeOffset(m_handle);
+  }
 
   /** @} */
 
@@ -661,14 +780,18 @@ class NetworkTableInstance final {
    */
   NT_DataLogger StartEntryDataLog(wpi::log::DataLog& log,
                                   std::string_view prefix,
-                                  std::string_view logPrefix);
+                                  std::string_view logPrefix) {
+    return ::nt::StartEntryDataLog(m_handle, log, prefix, logPrefix);
+  }
 
   /**
    * Stops logging entry changes to a DataLog.
    *
    * @param logger data logger handle
    */
-  static void StopEntryDataLog(NT_DataLogger logger);
+  static void StopEntryDataLog(NT_DataLogger logger) {
+    ::nt::StopEntryDataLog(logger);
+  }
 
   /**
    * Starts logging connection changes to a DataLog.
@@ -679,14 +802,18 @@ class NetworkTableInstance final {
    * @return Data logger handle
    */
   NT_ConnectionDataLogger StartConnectionDataLog(wpi::log::DataLog& log,
-                                                 std::string_view name);
+                                                 std::string_view name) {
+    return ::nt::StartConnectionDataLog(m_handle, log, name);
+  }
 
   /**
    * Stops logging connection changes to a DataLog.
    *
    * @param logger data logger handle
    */
-  static void StopConnectionDataLog(NT_ConnectionDataLogger logger);
+  static void StopConnectionDataLog(NT_ConnectionDataLogger logger) {
+    ::nt::StopConnectionDataLog(logger);
+  }
 
   /** @} */
 
@@ -708,9 +835,110 @@ class NetworkTableInstance final {
    * @return Listener handle
    */
   NT_Listener AddLogger(unsigned int minLevel, unsigned int maxLevel,
-                        ListenerCallback func);
+                        ListenerCallback func) {
+    return ::nt::AddLogger(m_handle, minLevel, maxLevel, std::move(func));
+  }
 
   /** @} */
+
+  /**
+   * @{
+   * @name Schema Functions
+   */
+
+  /**
+   * Returns whether there is a data schema already registered with the given
+   * name. This does NOT perform a check as to whether the schema has already
+   * been published by another node on the network.
+   *
+   * @param name Name (the string passed as the data type for topics using this
+   *             schema)
+   * @return True if schema already registered
+   */
+  bool HasSchema(std::string_view name) const {
+    return ::nt::HasSchema(m_handle, name);
+  }
+
+  /**
+   * Registers a data schema.  Data schemas provide information for how a
+   * certain data type string can be decoded.  The type string of a data schema
+   * indicates the type of the schema itself (e.g. "protobuf" for protobuf
+   * schemas, "struct" for struct schemas, etc). In NetworkTables, schemas are
+   * published just like normal topics, with the name being generated from the
+   * provided name: "/.schema/<name>".  Duplicate calls to this function with
+   * the same name are silently ignored.
+   *
+   * @param name Name (the string passed as the data type for topics using this
+   *             schema)
+   * @param type Type of schema (e.g. "protobuf", "struct", etc)
+   * @param schema Schema data
+   */
+  void AddSchema(std::string_view name, std::string_view type,
+                 std::span<const uint8_t> schema) {
+    ::nt::AddSchema(m_handle, name, type, schema);
+  }
+
+  /**
+   * Registers a data schema.  Data schemas provide information for how a
+   * certain data type string can be decoded.  The type string of a data schema
+   * indicates the type of the schema itself (e.g. "protobuf" for protobuf
+   * schemas, "struct" for struct schemas, etc). In NetworkTables, schemas are
+   * published just like normal topics, with the name being generated from the
+   * provided name: "/.schema/<name>".  Duplicate calls to this function with
+   * the same name are silently ignored.
+   *
+   * @param name Name (the string passed as the data type for topics using this
+   *             schema)
+   * @param type Type of schema (e.g. "protobuf", "struct", etc)
+   * @param schema Schema data
+   */
+  void AddSchema(std::string_view name, std::string_view type,
+                 std::string_view schema) {
+    ::nt::AddSchema(m_handle, name, type, schema);
+  }
+
+// Suppress unused-lambda-capture warning on AddSchema() call
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-lambda-capture"
+#endif
+
+  /**
+   * Registers a protobuf schema. Duplicate calls to this function with the same
+   * name are silently ignored.
+   *
+   * @tparam T protobuf serializable type
+   * @param msg protobuf message
+   */
+  template <wpi::ProtobufSerializable T>
+  void AddProtobufSchema(wpi::ProtobufMessage<T>& msg) {
+    msg.ForEachProtobufDescriptor(
+        [this](auto typeString) { return HasSchema(typeString); },
+        [this](auto typeString, auto schema) {
+          AddSchema(typeString, "proto:FileDescriptorProto", schema);
+        });
+  }
+
+  /**
+   * Registers a struct schema. Duplicate calls to this function with the same
+   * name are silently ignored.
+   *
+   * @tparam T struct serializable type
+   * @param info optional struct type info
+   */
+  template <typename T, typename... I>
+    requires wpi::StructSerializable<T, I...>
+  void AddStructSchema(const I&... info) {
+    wpi::ForEachStructSchema<T>(
+        [this](auto typeString, auto schema) {
+          AddSchema(typeString, "structschema", schema);
+        },
+        info...);
+  }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
   /**
    * Equality operator.  Returns true if both instances refer to the same
@@ -724,5 +952,3 @@ class NetworkTableInstance final {
 };
 
 }  // namespace nt
-
-#include "networktables/NetworkTableInstance.inc"

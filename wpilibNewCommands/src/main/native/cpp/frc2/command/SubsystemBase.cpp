@@ -4,6 +4,8 @@
 
 #include "frc2/command/SubsystemBase.h"
 
+#include <string>
+
 #include <wpi/sendable/SendableBuilder.h>
 #include <wpi/sendable/SendableRegistry.h>
 
@@ -14,6 +16,11 @@ using namespace frc2;
 
 SubsystemBase::SubsystemBase() {
   wpi::SendableRegistry::AddLW(this, GetTypeName(*this));
+  CommandScheduler::GetInstance().RegisterSubsystem({this});
+}
+
+SubsystemBase::SubsystemBase(std::string_view name) {
+  wpi::SendableRegistry::AddLW(this, name);
   CommandScheduler::GetInstance().RegisterSubsystem({this});
 }
 

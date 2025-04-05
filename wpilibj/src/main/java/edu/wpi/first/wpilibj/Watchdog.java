@@ -62,10 +62,8 @@ public class Watchdog implements Closeable, Comparable<Watchdog> {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof Watchdog) {
-      return Double.compare(m_expirationTimeSeconds, ((Watchdog) obj).m_expirationTimeSeconds) == 0;
-    }
-    return false;
+    return obj instanceof Watchdog watchdog
+        && Double.compare(m_expirationTimeSeconds, watchdog.m_expirationTimeSeconds) == 0;
   }
 
   @Override
@@ -208,8 +206,9 @@ public class Watchdog implements Closeable, Comparable<Watchdog> {
     m_suppressTimeoutMessage = suppress;
   }
 
+  @SuppressWarnings("resource")
   private static void updateAlarm() {
-    if (m_watchdogs.size() == 0) {
+    if (m_watchdogs.isEmpty()) {
       NotifierJNI.cancelNotifierAlarm(m_notifier);
     } else {
       NotifierJNI.updateNotifierAlarm(
@@ -233,7 +232,7 @@ public class Watchdog implements Closeable, Comparable<Watchdog> {
 
       m_queueMutex.lock();
       try {
-        if (m_watchdogs.size() == 0) {
+        if (m_watchdogs.isEmpty()) {
           continue;
         }
 

@@ -4,11 +4,16 @@
 
 #include "wpinet/uv/Signal.h"
 
+#include <memory>
+
 #include "wpinet/uv/Loop.h"
 
 namespace wpi::uv {
 
 std::shared_ptr<Signal> Signal::Create(Loop& loop) {
+  if (loop.IsClosing()) {
+    return nullptr;
+  }
   auto h = std::make_shared<Signal>(private_init{});
   int err = uv_signal_init(loop.GetRaw(), h->GetRaw());
   if (err < 0) {
@@ -20,6 +25,9 @@ std::shared_ptr<Signal> Signal::Create(Loop& loop) {
 }
 
 void Signal::Start(int signum) {
+  if (IsLoopClosing()) {
+    return;
+  }
   Invoke(
       &uv_signal_start, GetRaw(),
       [](uv_signal_t* handle, int signum) {

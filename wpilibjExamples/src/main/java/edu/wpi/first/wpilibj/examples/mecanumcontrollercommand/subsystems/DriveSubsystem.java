@@ -5,15 +5,14 @@
 package edu.wpi.first.wpilibj.examples.mecanumcontrollercommand.subsystems;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.kinematics.MecanumDriveMotorVoltages;
 import edu.wpi.first.math.kinematics.MecanumDriveOdometry;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelPositions;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
+import edu.wpi.first.util.sendable.SendableRegistry;
 import edu.wpi.first.wpilibj.ADXRS450_Gyro;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.drive.MecanumDrive;
 import edu.wpi.first.wpilibj.examples.mecanumcontrollercommand.Constants.DriveConstants;
-import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -24,7 +23,7 @@ public class DriveSubsystem extends SubsystemBase {
   private final PWMSparkMax m_rearRight = new PWMSparkMax(DriveConstants.kRearRightMotorPort);
 
   private final MecanumDrive m_drive =
-      new MecanumDrive(m_frontLeft, m_rearLeft, m_frontRight, m_rearRight);
+      new MecanumDrive(m_frontLeft::set, m_rearLeft::set, m_frontRight::set, m_rearRight::set);
 
   // The front-left-side drive encoder
   private final Encoder m_frontLeftEncoder =
@@ -55,7 +54,7 @@ public class DriveSubsystem extends SubsystemBase {
           DriveConstants.kRearRightEncoderReversed);
 
   // The gyro sensor
-  private final Gyro m_gyro = new ADXRS450_Gyro();
+  private final ADXRS450_Gyro m_gyro = new ADXRS450_Gyro();
 
   // Odometry class for tracking robot pose
   MecanumDriveOdometry m_odometry =
@@ -66,6 +65,11 @@ public class DriveSubsystem extends SubsystemBase {
 
   /** Creates a new DriveSubsystem. */
   public DriveSubsystem() {
+    SendableRegistry.addChild(m_drive, m_frontLeft);
+    SendableRegistry.addChild(m_drive, m_rearLeft);
+    SendableRegistry.addChild(m_drive, m_frontRight);
+    SendableRegistry.addChild(m_drive, m_rearRight);
+
     // Sets the distance per pulse for the encoders
     m_frontLeftEncoder.setDistancePerPulse(DriveConstants.kEncoderDistancePerPulse);
     m_rearLeftEncoder.setDistancePerPulse(DriveConstants.kEncoderDistancePerPulse);
@@ -113,18 +117,22 @@ public class DriveSubsystem extends SubsystemBase {
    */
   public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative) {
     if (fieldRelative) {
-      m_drive.driveCartesian(ySpeed, xSpeed, rot, m_gyro.getRotation2d());
+      m_drive.driveCartesian(xSpeed, ySpeed, rot, m_gyro.getRotation2d());
     } else {
-      m_drive.driveCartesian(ySpeed, xSpeed, rot);
+      m_drive.driveCartesian(xSpeed, ySpeed, rot);
     }
   }
 
   /** Sets the front left drive MotorController to a voltage. */
-  public void setDriveMotorControllersVolts(MecanumDriveMotorVoltages volts) {
-    m_frontLeft.setVoltage(volts.frontLeftVoltage);
-    m_rearLeft.setVoltage(volts.rearLeftVoltage);
-    m_frontRight.setVoltage(volts.frontRightVoltage);
-    m_rearRight.setVoltage(volts.rearRightVoltage);
+  public void setDriveMotorControllersVolts(
+      double frontLeftVoltage,
+      double frontRightVoltage,
+      double rearLeftVoltage,
+      double rearRightVoltage) {
+    m_frontLeft.setVoltage(frontLeftVoltage);
+    m_rearLeft.setVoltage(rearLeftVoltage);
+    m_frontRight.setVoltage(frontRightVoltage);
+    m_rearRight.setVoltage(rearRightVoltage);
   }
 
   /** Resets the drive encoders to currently read a position of 0. */

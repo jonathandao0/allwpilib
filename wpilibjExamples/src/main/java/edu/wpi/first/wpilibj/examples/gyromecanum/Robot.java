@@ -4,6 +4,7 @@
 
 package edu.wpi.first.wpilibj.examples.gyromecanum;
 
+import edu.wpi.first.util.sendable.SendableRegistry;
 import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
@@ -26,12 +27,12 @@ public class Robot extends TimedRobot {
   private static final int kGyroPort = 0;
   private static final int kJoystickPort = 0;
 
-  private MecanumDrive m_robotDrive;
+  private final MecanumDrive m_robotDrive;
   private final AnalogGyro m_gyro = new AnalogGyro(kGyroPort);
   private final Joystick m_joystick = new Joystick(kJoystickPort);
 
-  @Override
-  public void robotInit() {
+  /** Called once at the beginning of the robot program. */
+  public Robot() {
     PWMSparkMax frontLeft = new PWMSparkMax(kFrontLeftChannel);
     PWMSparkMax rearLeft = new PWMSparkMax(kRearLeftChannel);
     PWMSparkMax frontRight = new PWMSparkMax(kFrontRightChannel);
@@ -42,9 +43,14 @@ public class Robot extends TimedRobot {
     frontRight.setInverted(true);
     rearRight.setInverted(true);
 
-    m_robotDrive = new MecanumDrive(frontLeft, rearLeft, frontRight, rearRight);
+    m_robotDrive = new MecanumDrive(frontLeft::set, rearLeft::set, frontRight::set, rearRight::set);
 
     m_gyro.setSensitivity(kVoltsPerDegreePerSecond);
+
+    SendableRegistry.addChild(m_robotDrive, frontLeft);
+    SendableRegistry.addChild(m_robotDrive, rearLeft);
+    SendableRegistry.addChild(m_robotDrive, frontRight);
+    SendableRegistry.addChild(m_robotDrive, rearRight);
   }
 
   /** Mecanum drive is used with the gyro angle as an input. */

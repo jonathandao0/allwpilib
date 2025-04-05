@@ -5,7 +5,8 @@
 #include "frc/AnalogGyro.h"
 
 #include <climits>
-#include <utility>
+#include <memory>
+#include <string>
 
 #include <hal/AnalogGyro.h>
 #include <hal/Errors.h>
@@ -17,7 +18,6 @@
 
 #include "frc/AnalogInput.h"
 #include "frc/Errors.h"
-#include "frc/Timer.h"
 
 using namespace frc;
 
@@ -56,10 +56,6 @@ AnalogGyro::AnalogGyro(std::shared_ptr<AnalogInput> channel, int center,
                               offset, center, &status);
   FRC_CheckErrorStatus(status, "Channel {}", m_analog->GetChannel());
   Reset();
-}
-
-AnalogGyro::~AnalogGyro() {
-  HAL_FreeAnalogGyro(m_gyroHandle);
 }
 
 double AnalogGyro::GetAngle() const {
@@ -133,12 +129,15 @@ void AnalogGyro::Calibrate() {
   FRC_CheckErrorStatus(status, "Channel {}", m_analog->GetChannel());
 }
 
+Rotation2d AnalogGyro::GetRotation2d() const {
+  return units::degree_t{-GetAngle()};
+}
+
 std::shared_ptr<AnalogInput> AnalogGyro::GetAnalogInput() const {
   return m_analog;
 }
 
 void AnalogGyro::InitSendable(wpi::SendableBuilder& builder) {
   builder.SetSmartDashboardType("Gyro");
-  builder.AddDoubleProperty(
-      "Value", [=, this] { return GetAngle(); }, nullptr);
+  builder.AddDoubleProperty("Value", [=, this] { return GetAngle(); }, nullptr);
 }

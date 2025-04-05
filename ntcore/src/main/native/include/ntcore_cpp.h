@@ -17,6 +17,8 @@
 #include <variant>
 #include <vector>
 
+#include <wpi/json_fwd.h>
+
 #include "networktables/NetworkTableValue.h"
 #include "ntcore_c.h"
 #include "ntcore_cpp_types.h"
@@ -24,7 +26,6 @@
 namespace wpi {
 template <typename T>
 class SmallVectorImpl;
-class json;
 }  // namespace wpi
 
 namespace wpi::log {
@@ -373,6 +374,14 @@ struct PubSubOptions {
    * internal publisher.
    */
   bool excludeSelf = false;
+
+  /**
+   * For subscriptions, don't share the existence of the subscription with the
+   * network. Note this means updates will not be received from the network
+   * unless another subscription overlaps with this one, and the subscription
+   * will not appear in metatopics.
+   */
+  bool hidden = false;
 };
 
 /**
@@ -479,8 +488,8 @@ Value GetEntryValue(NT_Handle subentry);
 /**
  * Set Default Entry Value
  *
- * Returns copy of current entry value if it exists.
- * Otherwise, sets passed in value, and returns set value.
+ * Returns False if name exists.
+ * Otherwise, sets passed in value, and returns True.
  * Note that one of the type options is "unassigned".
  *
  * @param entry     entry handle
@@ -526,6 +535,18 @@ unsigned int GetEntryFlags(NT_Entry entry);
  * @return entry value array
  */
 std::vector<Value> ReadQueueValue(NT_Handle subentry);
+
+/**
+ * Read Entry Queue.
+ *
+ * Returns new entry values since last call.
+ *
+ * @param subentry     subscriber or entry handle
+ * @param types        bitmask of NT_Type values; 0 is treated specially
+ *                     as a "don't care"
+ * @return entry value array
+ */
+std::vector<Value> ReadQueueValue(NT_Handle subentry, unsigned int types);
 
 /** @} */
 
@@ -679,6 +700,24 @@ void SetTopicRetained(NT_Topic topic, bool value);
  * @return retained property value
  */
 bool GetTopicRetained(NT_Topic topic);
+
+/**
+ * Sets the cached property of a topic.  If true, the server and clients will
+ * store the latest value, allowing the value to be read (and not just accessed
+ * through event queues and listeners).
+ *
+ * @param topic topic handle
+ * @param value True for cached, false for not cached
+ */
+void SetTopicCached(NT_Topic topic, bool value);
+
+/**
+ * Gets the cached property of a topic.
+ *
+ * @param topic topic handle
+ * @return cached property value
+ */
+bool GetTopicCached(NT_Topic topic);
 
 /**
  * Determine if topic exists (e.g. has at least one publisher).
@@ -1017,12 +1056,12 @@ void StopLocal(NT_Inst inst);
  * @param persist_filename  the name of the persist file to use (UTF-8 string,
  *                          null terminated)
  * @param listen_address    the address to listen on, or null to listen on any
- *                          address. (UTF-8 string, null terminated)
+ *                          address. (UTF-8 string)
  * @param port3             port to communicate over (NT3)
  * @param port4             port to communicate over (NT4)
  */
 void StartServer(NT_Inst inst, std::string_view persist_filename,
-                 const char* listen_address, unsigned int port3,
+                 std::string_view listen_address, unsigned int port3,
                  unsigned int port4);
 
 /**
@@ -1064,7 +1103,7 @@ void StopClient(NT_Inst inst);
  * @param server_name server name (UTF-8 string, null terminated)
  * @param port        port to communicate over
  */
-void SetServer(NT_Inst inst, const char* server_name, unsigned int port);
+void SetServer(NT_Inst inst, std::string_view server_name, unsigned int port);
 
 /**
  * Sets server addresses for client (without restarting client).
@@ -1086,6 +1125,14 @@ void SetServer(
  * @param port        port to communicate over
  */
 void SetServerTeam(NT_Inst inst, unsigned int team, unsigned int port);
+
+/**
+ * Disconnects the client if it's running and connected. This will automatically
+ * start reconnection attempts to the current server list.
+ *
+ * @param inst instance handle
+ */
+void Disconnect(NT_Inst inst);
 
 /**
  * Starts requesting server address from Driver Station.
@@ -1290,6 +1337,66 @@ NT_Listener AddLogger(NT_Inst inst, unsigned int min_level,
  */
 NT_Listener AddPolledLogger(NT_ListenerPoller poller, unsigned int min_level,
                             unsigned int max_level);
+
+/** @} */
+
+/**
+ * @defgroup ntcore_schema_func Schema Functions
+ * @{
+ */
+
+/**
+ * Returns whether there is a data schema already registered with the given
+ * name. This does NOT perform a check as to whether the schema has already
+ * been published by another node on the network.
+ *
+ * @param inst instance
+ * @param name Name (the string passed as the data type for topics using this
+ *             schema)
+ * @return True if schema already registered
+ */
+bool HasSchema(NT_Inst inst, std::string_view name);
+
+/**
+ * Registers a data schema.  Data schemas provide information for how a
+ * certain data type string can be decoded.  The type string of a data schema
+ * indicates the type of the schema itself (e.g. "protobuf" for protobuf
+ * schemas, "struct" for struct schemas, etc). In NetworkTables, schemas are
+ * published just like normal topics, with the name being generated from the
+ * provided name: "/.schema/<name>".  Duplicate calls to this function with
+ * the same name are silently ignored.
+ *
+ * @param inst instance
+ * @param name Name (the string passed as the data type for topics using this
+ *             schema)
+ * @param type Type of schema (e.g. "protobuf", "struct", etc)
+ * @param schema Schema data
+ */
+void AddSchema(NT_Inst inst, std::string_view name, std::string_view type,
+               std::span<const uint8_t> schema);
+
+/**
+ * Registers a data schema.  Data schemas provide information for how a
+ * certain data type string can be decoded.  The type string of a data schema
+ * indicates the type of the schema itself (e.g. "protobuf" for protobuf
+ * schemas, "struct" for struct schemas, etc). In NetworkTables, schemas are
+ * published just like normal topics, with the name being generated from the
+ * provided name: "/.schema/<name>".  Duplicate calls to this function with
+ * the same name are silently ignored.
+ *
+ * @param inst instance
+ * @param name Name (the string passed as the data type for topics using this
+ *             schema)
+ * @param type Type of schema (e.g. "protobuf", "struct", etc)
+ * @param schema Schema data
+ */
+inline void AddSchema(NT_Inst inst, std::string_view name,
+                      std::string_view type, std::string_view schema) {
+  AddSchema(
+      inst, name, type,
+      std::span<const uint8_t>{reinterpret_cast<const uint8_t*>(schema.data()),
+                               schema.size()});
+}
 
 /** @} */
 /** @} */

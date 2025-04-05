@@ -12,6 +12,7 @@
 #include <wpi/SmallVector.h>
 #include <wpinet/raw_uv_ostream.h>
 #include <wpinet/uv/Buffer.h>
+#include <wpinet/uv/Stream.h>
 
 #include "net3/WireConnection3.h"
 
@@ -38,6 +39,21 @@ class UvStreamConnection3 final
 
   void Flush() final;
 
+  uint64_t GetLastFlushTime() const final { return m_lastFlushTime; }
+
+  void StopRead() final {
+    if (m_readActive) {
+      m_stream.StopRead();
+      m_readActive = false;
+    }
+  }
+  void StartRead() final {
+    if (!m_readActive) {
+      m_stream.StartRead();
+      m_readActive = true;
+    }
+  }
+
   void Disconnect(std::string_view reason) final;
 
   std::string_view GetDisconnectReason() const { return m_reason; }
@@ -54,7 +70,9 @@ class UvStreamConnection3 final
   std::vector<wpi::uv::Buffer> m_buf_pool;
   wpi::raw_uv_ostream m_os;
   std::string m_reason;
+  uint64_t m_lastFlushTime = 0;
   int m_sendsActive = 0;
+  bool m_readActive = true;
 };
 
 }  // namespace nt::net3

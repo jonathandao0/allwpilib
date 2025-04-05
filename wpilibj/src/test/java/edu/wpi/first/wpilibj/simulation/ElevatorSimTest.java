@@ -22,6 +22,7 @@ class ElevatorSimTest {
   void testStateSpaceSimWithElevator() {
     RoboRioSim.resetData();
 
+    @SuppressWarnings("resource")
     var controller = new PIDController(10, 0, 0);
 
     var sim =
@@ -33,7 +34,9 @@ class ElevatorSimTest {
             0.0,
             3.0,
             true,
-            VecBuilder.fill(0.01));
+            0.0,
+            0.01,
+            0.0);
 
     try (var motor = new PWMVictorSPX(0);
         var encoder = new Encoder(0, 1)) {
@@ -61,6 +64,17 @@ class ElevatorSimTest {
   }
 
   @Test
+  void testInitialState() {
+    double startingHeightMeters = 0.5;
+    var sim =
+        new ElevatorSim(
+            DCMotor.getKrakenX60(2), 20, 8.0, 0.1, 0.0, 1.0, true, startingHeightMeters, 0.01, 0.0);
+
+    assertEquals(startingHeightMeters, sim.getPositionMeters());
+    assertEquals(0, sim.getVelocityMetersPerSecond());
+  }
+
+  @Test
   void testMinMax() {
     var sim =
         new ElevatorSim(
@@ -71,7 +85,9 @@ class ElevatorSimTest {
             0.0,
             1.0,
             true,
-            VecBuilder.fill(0.01));
+            0.0,
+            0.01,
+            0.0);
 
     for (int i = 0; i < 100; i++) {
       sim.setInput(VecBuilder.fill(0));
@@ -91,7 +107,8 @@ class ElevatorSimTest {
   @Test
   void testStability() {
     var sim =
-        new ElevatorSim(DCMotor.getVex775Pro(4), 100, 4, Units.inchesToMeters(0.5), 0, 10, true);
+        new ElevatorSim(
+            DCMotor.getVex775Pro(4), 100, 4, Units.inchesToMeters(0.5), 0, 10, false, 0.0);
 
     sim.setState(VecBuilder.fill(0, 0));
     sim.setInput(12);

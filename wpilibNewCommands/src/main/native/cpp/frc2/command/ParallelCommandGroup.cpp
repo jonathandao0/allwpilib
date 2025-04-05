@@ -4,6 +4,9 @@
 
 #include "frc2/command/ParallelCommandGroup.h"
 
+#include <utility>
+#include <vector>
+
 using namespace frc2;
 
 ParallelCommandGroup::ParallelCommandGroup(
@@ -63,7 +66,7 @@ Command::InterruptionBehavior ParallelCommandGroup::GetInterruptionBehavior()
 
 void ParallelCommandGroup::AddCommands(
     std::vector<std::unique_ptr<Command>>&& commands) {
-  CommandScheduler::GetInstance().RequireUngrouped(commands);
+  CommandScheduler::GetInstance().RequireUngroupedAndUnscheduled(commands);
 
   if (isRunning) {
     throw FRC_MakeError(frc::err::CommandIllegalUse,

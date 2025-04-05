@@ -10,11 +10,15 @@
 
 void Drivetrain::Drive(units::meters_per_second_t xSpeed,
                        units::meters_per_second_t ySpeed,
-                       units::radians_per_second_t rot, bool fieldRelative) {
-  auto states = m_kinematics.ToSwerveModuleStates(
-      fieldRelative ? frc::ChassisSpeeds::FromFieldRelativeSpeeds(
-                          xSpeed, ySpeed, rot, m_gyro.GetRotation2d())
-                    : frc::ChassisSpeeds{xSpeed, ySpeed, rot});
+                       units::radians_per_second_t rot, bool fieldRelative,
+                       units::second_t period) {
+  auto states =
+      m_kinematics.ToSwerveModuleStates(frc::ChassisSpeeds::Discretize(
+          fieldRelative ? frc::ChassisSpeeds::FromFieldRelativeSpeeds(
+                              xSpeed, ySpeed, rot,
+                              m_poseEstimator.GetEstimatedPosition().Rotation())
+                        : frc::ChassisSpeeds{xSpeed, ySpeed, rot},
+          period));
 
   m_kinematics.DesaturateWheelSpeeds(&states, kMaxSpeed);
 
@@ -37,5 +41,5 @@ void Drivetrain::UpdateOdometry() {
   m_poseEstimator.AddVisionMeasurement(
       ExampleGlobalMeasurementSensor::GetEstimatedGlobalPose(
           m_poseEstimator.GetEstimatedPosition()),
-      frc::Timer::GetFPGATimestamp() - 0.3_s);
+      frc::Timer::GetTimestamp() - 0.3_s);
 }

@@ -4,15 +4,14 @@
 
 #pragma once
 
-#include <libssh/libssh.h>
-
 #include <stdexcept>
 #include <string>
 #include <string_view>
 
+#include <libssh/libssh.h>
 #include <wpi/Logger.h>
 
-namespace sysid {
+namespace rtns {
 /**
  * This class is a C++ implementation of the SshSessionController in
  * wpilibsuite/deploy-utils. It handles connecting to an SSH server, running
@@ -59,6 +58,8 @@ class SshSession {
    */
   void Execute(std::string_view cmd);
 
+  std::string ExecuteResult(std::string_view cmd, int* exitStatus);
+
   /**
    * Puts a file on the server using SFTP.
    *
@@ -78,4 +79,4 @@ class SshSession {
 
   wpi::Logger& m_logger;
 };
-}  // namespace sysid
+}  // namespace rtns

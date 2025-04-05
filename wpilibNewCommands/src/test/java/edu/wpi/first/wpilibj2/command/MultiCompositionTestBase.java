@@ -5,6 +5,7 @@
 package edu.wpi.first.wpilibj2.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import edu.wpi.first.wpilibj2.command.Command.InterruptionBehavior;
@@ -13,11 +14,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-interface MultiCompositionTestBase<T extends Command> extends SingleCompositionTestBase<T> {
-  T compose(Command... members);
+abstract class MultiCompositionTestBase<T extends Command> extends SingleCompositionTestBase<T> {
+  abstract T compose(Command... members);
 
   @Override
-  default T composeSingle(Command member) {
+  T composeSingle(Command member) {
     return compose(member);
   }
 
@@ -26,44 +27,32 @@ interface MultiCompositionTestBase<T extends Command> extends SingleCompositionT
         arguments(
             "AllCancelSelf",
             InterruptionBehavior.kCancelSelf,
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelSelf),
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelSelf),
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelSelf)),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelSelf),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelSelf),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelSelf)),
         arguments(
             "AllCancelIncoming",
             InterruptionBehavior.kCancelIncoming,
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelIncoming),
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelIncoming),
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelIncoming)),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelIncoming),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelIncoming),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelIncoming)),
         arguments(
             "TwoCancelSelfOneIncoming",
             InterruptionBehavior.kCancelSelf,
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelSelf),
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelSelf),
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelIncoming)),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelSelf),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelSelf),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelIncoming)),
         arguments(
             "TwoCancelIncomingOneSelf",
             InterruptionBehavior.kCancelSelf,
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelIncoming),
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelIncoming),
-            new WaitUntilCommand(() -> false)
-                .withInterruptBehavior(InterruptionBehavior.kCancelSelf)));
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelIncoming),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelIncoming),
+            Commands.idle().withInterruptBehavior(InterruptionBehavior.kCancelSelf)));
   }
 
   @MethodSource
   @ParameterizedTest(name = "interruptible[{index}]: {0}")
-  default void interruptible(
+  void interruptible(
       @SuppressWarnings("unused") String name,
       InterruptionBehavior expected,
       Command command1,
@@ -78,32 +67,32 @@ interface MultiCompositionTestBase<T extends Command> extends SingleCompositionT
         arguments(
             "AllFalse",
             false,
-            new WaitUntilCommand(() -> false).ignoringDisable(false),
-            new WaitUntilCommand(() -> false).ignoringDisable(false),
-            new WaitUntilCommand(() -> false).ignoringDisable(false)),
+            Commands.idle().ignoringDisable(false),
+            Commands.idle().ignoringDisable(false),
+            Commands.idle().ignoringDisable(false)),
         arguments(
             "AllTrue",
             true,
-            new WaitUntilCommand(() -> false).ignoringDisable(true),
-            new WaitUntilCommand(() -> false).ignoringDisable(true),
-            new WaitUntilCommand(() -> false).ignoringDisable(true)),
+            Commands.idle().ignoringDisable(true),
+            Commands.idle().ignoringDisable(true),
+            Commands.idle().ignoringDisable(true)),
         arguments(
             "TwoTrueOneFalse",
             false,
-            new WaitUntilCommand(() -> false).ignoringDisable(true),
-            new WaitUntilCommand(() -> false).ignoringDisable(true),
-            new WaitUntilCommand(() -> false).ignoringDisable(false)),
+            Commands.idle().ignoringDisable(true),
+            Commands.idle().ignoringDisable(true),
+            Commands.idle().ignoringDisable(false)),
         arguments(
             "TwoFalseOneTrue",
             false,
-            new WaitUntilCommand(() -> false).ignoringDisable(false),
-            new WaitUntilCommand(() -> false).ignoringDisable(false),
-            new WaitUntilCommand(() -> false).ignoringDisable(true)));
+            Commands.idle().ignoringDisable(false),
+            Commands.idle().ignoringDisable(false),
+            Commands.idle().ignoringDisable(true)));
   }
 
   @MethodSource
   @ParameterizedTest(name = "runsWhenDisabled[{index}]: {0}")
-  default void runsWhenDisabled(
+  void runsWhenDisabled(
       @SuppressWarnings("unused") String name,
       boolean expected,
       Command command1,
@@ -111,5 +100,20 @@ interface MultiCompositionTestBase<T extends Command> extends SingleCompositionT
       Command command3) {
     var command = compose(command1, command2, command3);
     assertEquals(expected, command.runsWhenDisabled());
+  }
+
+  static Stream<Arguments> composeDuplicates() {
+    Command a = Commands.none();
+    Command b = Commands.none();
+    return Stream.of(
+        arguments("AA", new Command[] {a, a}),
+        arguments("ABA", new Command[] {a, b, a}),
+        arguments("BAA", new Command[] {b, a, a}));
+  }
+
+  @MethodSource
+  @ParameterizedTest(name = "composeDuplicates[{index}]: {0}")
+  void composeDuplicates(@SuppressWarnings("unused") String name, Command[] commands) {
+    assertThrows(IllegalArgumentException.class, () -> compose(commands));
   }
 }

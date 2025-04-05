@@ -13,7 +13,9 @@
 #include <string_view>
 #include <vector>
 
+#include <wpi/RawFrame.h>
 #include <wpi/SmallVector.h>
+#include <wpi/json_fwd.h>
 
 #include "cscore_c.h"
 
@@ -22,10 +24,6 @@
 #pragma warning(push)
 #pragma warning(disable : 26495)
 #endif
-
-namespace wpi {
-class json;
-}  // namespace wpi
 
 /** CameraServer (cscore) namespace */
 namespace cs {
@@ -63,14 +61,15 @@ struct UsbCameraInfo {
  */
 struct VideoMode : public CS_VideoMode {
   enum PixelFormat {
-    kUnknown = CS_PIXFMT_UNKNOWN,
-    kMJPEG = CS_PIXFMT_MJPEG,
-    kYUYV = CS_PIXFMT_YUYV,
-    kRGB565 = CS_PIXFMT_RGB565,
-    kBGR = CS_PIXFMT_BGR,
-    kGray = CS_PIXFMT_GRAY,
-    kY16 = CS_PIXFMT_Y16,
-    kUYVY = CS_PIXFMT_UYVY
+    kUnknown = WPI_PIXFMT_UNKNOWN,
+    kMJPEG = WPI_PIXFMT_MJPEG,
+    kYUYV = WPI_PIXFMT_YUYV,
+    kRGB565 = WPI_PIXFMT_RGB565,
+    kBGR = WPI_PIXFMT_BGR,
+    kGray = WPI_PIXFMT_GRAY,
+    kY16 = WPI_PIXFMT_Y16,
+    kUYVY = WPI_PIXFMT_UYVY,
+    kBGRA = WPI_PIXFMT_BGRA,
   };
   VideoMode() {
     pixelFormat = 0;
@@ -262,7 +261,7 @@ void ReleaseSource(CS_Source source, CS_Status* status);
 /** @} */
 
 /**
- * @defgroup cscore_camera_property_func Camera Source Common Property Fuctions
+ * @defgroup cscore_camera_property_func Camera Source Common Property Functions
  * @{
  */
 void SetCameraBrightness(CS_Source source, int brightness, CS_Status* status);
@@ -296,7 +295,7 @@ std::vector<std::string> GetHttpCameraUrls(CS_Source source, CS_Status* status);
 /** @} */
 
 /**
- * @defgroup cscore_opencv_source_func OpenCV Source Functions
+ * @defgroup cscore_frame_source_func Frame Source Functions
  * @{
  */
 void NotifySourceError(CS_Source source, std::string_view msg,
@@ -319,8 +318,10 @@ void SetSourceEnumPropertyChoices(CS_Source source, CS_Property property,
  */
 CS_Sink CreateMjpegServer(std::string_view name, std::string_view listenAddress,
                           int port, CS_Status* status);
-CS_Sink CreateCvSink(std::string_view name, CS_Status* status);
+CS_Sink CreateCvSink(std::string_view name, VideoMode::PixelFormat pixelFormat,
+                     CS_Status* status);
 CS_Sink CreateCvSinkCallback(std::string_view name,
+                             VideoMode::PixelFormat pixelFormat,
                              std::function<void(uint64_t time)> processFrame,
                              CS_Status* status);
 
@@ -365,7 +366,7 @@ int GetMjpegServerPort(CS_Sink sink, CS_Status* status);
 /** @} */
 
 /**
- * @defgroup cscore_opencv_sink_func OpenCV Sink Functions
+ * @defgroup cscore_frame_sink_func Frame Sink Functions
  * @{
  */
 void SetSinkDescription(CS_Sink sink, std::string_view description,

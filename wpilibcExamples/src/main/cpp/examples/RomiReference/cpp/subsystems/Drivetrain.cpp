@@ -15,6 +15,9 @@ using namespace DriveConstants;
 // The Romi has onboard encoders that are hardcoded
 // to use DIO pins 4/5 and 6/7 for the left and right
 Drivetrain::Drivetrain() {
+  wpi::SendableRegistry::AddChild(&m_drive, &m_leftMotor);
+  wpi::SendableRegistry::AddChild(&m_drive, &m_rightMotor);
+
   // We need to invert one side of the drivetrain so that positive voltages
   // result in both sides moving forward. Depending on how your robot's
   // gearbox is constructed, you might have to invert the left side instead.
@@ -60,27 +63,27 @@ units::meter_t Drivetrain::GetAverageDistance() {
   return (GetLeftDistance() + GetRightDistance()) / 2.0;
 }
 
-double Drivetrain::GetAccelX() {
-  return m_accelerometer.GetX();
+units::meters_per_second_squared_t Drivetrain::GetAccelX() {
+  return units::meters_per_second_squared_t{m_accelerometer.GetX()};
 }
 
-double Drivetrain::GetAccelY() {
-  return m_accelerometer.GetY();
+units::meters_per_second_squared_t Drivetrain::GetAccelY() {
+  return units::meters_per_second_squared_t{m_accelerometer.GetY()};
 }
 
-double Drivetrain::GetAccelZ() {
-  return m_accelerometer.GetZ();
+units::meters_per_second_squared_t Drivetrain::GetAccelZ() {
+  return units::meters_per_second_squared_t{m_accelerometer.GetZ()};
 }
 
-double Drivetrain::GetGyroAngleX() {
+units::radian_t Drivetrain::GetGyroAngleX() {
   return m_gyro.GetAngleX();
 }
 
-double Drivetrain::GetGyroAngleY() {
+units::radian_t Drivetrain::GetGyroAngleY() {
   return m_gyro.GetAngleY();
 }
 
-double Drivetrain::GetGyroAngleZ() {
+units::radian_t Drivetrain::GetGyroAngleZ() {
   return m_gyro.GetAngleZ();
 }
 

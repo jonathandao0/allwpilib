@@ -4,7 +4,11 @@
 
 #include "glass/Storage.h"
 
-#include <type_traits>
+#include <concepts>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <imgui.h>
 #include <wpi/StringExtras.h>
@@ -14,7 +18,7 @@ using namespace glass;
 
 template <typename To>
 bool ConvertFromString(To* out, std::string_view str) {
-  if constexpr (std::is_same_v<To, bool>) {
+  if constexpr (std::same_as<To, bool>) {
     if (str == "true") {
       *out = true;
     } else if (str == "false") {
@@ -24,7 +28,7 @@ bool ConvertFromString(To* out, std::string_view str) {
     } else {
       return false;
     }
-  } else if constexpr (std::is_floating_point_v<To>) {
+  } else if constexpr (std::floating_point<To>) {
     if (auto val = wpi::parse_float<To>(str)) {
       *out = val.value();
     } else {
@@ -95,10 +99,14 @@ static inline bool ConvertString(Storage::Value* value) {
 template <typename From, typename To>
 static void ConvertArray(std::vector<To>** outPtr, std::vector<From>** inPtr) {
   if (*inPtr) {
-    std::vector<To>* tmp;
-    tmp = new std::vector<To>{(*inPtr)->begin(), (*inPtr)->end()};
-    delete *inPtr;
-    *outPtr = tmp;
+    if (*outPtr) {
+      (*outPtr)->assign((*inPtr)->begin(), (*inPtr)->end());
+    } else {
+      std::vector<To>* tmp;
+      tmp = new std::vector<To>{(*inPtr)->begin(), (*inPtr)->end()};
+      delete *inPtr;
+      *outPtr = tmp;
+    }
   } else {
     *outPtr = nullptr;
   }
@@ -300,7 +308,7 @@ Storage& Storage::GetChild(std::string_view label_id) {
     childPtr = std::make_unique<Value>();
   }
   if (childPtr->type != Value::kChild) {
-    childPtr->type = Value::kChild;
+    childPtr->Reset(Value::kChild);
     childPtr->child = new Storage;
   }
   return *childPtr->child;
@@ -323,7 +331,7 @@ std::vector<std::unique_ptr<Storage>>& Storage::GetChildArray(
 std::unique_ptr<Storage::Value> Storage::Erase(std::string_view key) {
   auto it = m_values.find(key);
   if (it != m_values.end()) {
-    auto rv = std::move(it->getValue());
+    auto rv = std::move(it->second);
     m_values.erase(it);
     return rv;
   }
@@ -331,11 +339,9 @@ std::unique_ptr<Storage::Value> Storage::Erase(std::string_view key) {
 }
 
 void Storage::EraseChildren() {
-  for (auto&& kv : m_values) {
-    if (kv.getValue()->type == Value::kChild) {
-      m_values.remove(&kv);
-    }
-  }
+  std::erase_if(m_values, [](const auto& kv) {
+    return kv.second->type == Value::kChild;
+  });
 }
 
 static bool JsonArrayToStorage(Storage::Value* valuePtr, const wpi::json& jarr,
@@ -551,7 +557,7 @@ wpi::json Storage::ToJson() const {
   wpi::json j = wpi::json::object();
   for (auto&& kv : m_values) {
     wpi::json jelem;
-    auto& value = *kv.getValue();
+    auto& value = *kv.second;
     switch (value.type) {
 #define CASE(CapsName, LowerName)                                        \
   case Value::k##CapsName:                                               \
@@ -594,7 +600,7 @@ wpi::json Storage::ToJson() const {
       default:
         continue;
     }
-    j.emplace(kv.getKey(), std::move(jelem));
+    j.emplace(kv.first, std::move(jelem));
   }
   return j;
 }
@@ -609,7 +615,7 @@ void Storage::Clear() {
 
 void Storage::ClearValues() {
   for (auto&& kv : m_values) {
-    auto& value = *kv.getValue();
+    auto& value = *kv.second;
     switch (value.type) {
       case Value::kInt:
         value.intVal = value.intDefault;
@@ -630,22 +636,46 @@ void Storage::ClearValues() {
         value.stringVal = value.stringDefault;
         break;
       case Value::kIntArray:
-        *value.intArray = *value.intArrayDefault;
+        if (value.intArrayDefault) {
+          *value.intArray = *value.intArrayDefault;
+        } else {
+          value.intArray->clear();
+        }
         break;
       case Value::kInt64Array:
-        *value.int64Array = *value.int64ArrayDefault;
+        if (value.int64ArrayDefault) {
+          *value.int64Array = *value.int64ArrayDefault;
+        } else {
+          value.int64Array->clear();
+        }
         break;
       case Value::kBoolArray:
-        *value.boolArray = *value.boolArrayDefault;
+        if (value.boolArrayDefault) {
+          *value.boolArray = *value.boolArrayDefault;
+        } else {
+          value.boolArray->clear();
+        }
         break;
       case Value::kFloatArray:
-        *value.floatArray = *value.floatArrayDefault;
+        if (value.floatArrayDefault) {
+          *value.floatArray = *value.floatArrayDefault;
+        } else {
+          value.floatArray->clear();
+        }
         break;
       case Value::kDoubleArray:
-        *value.doubleArray = *value.doubleArrayDefault;
+        if (value.doubleArrayDefault) {
+          *value.doubleArray = *value.doubleArrayDefault;
+        } else {
+          value.doubleArray->clear();
+        }
         break;
       case Value::kStringArray:
-        *value.stringArray = *value.stringArrayDefault;
+        if (value.stringArrayDefault) {
+          *value.stringArray = *value.stringArrayDefault;
+        } else {
+          value.stringArray->clear();
+        }
         break;
       case Value::kChild:
         value.child->Clear();
@@ -671,7 +701,7 @@ void Storage::Apply() {
 
 void Storage::ApplyChildren() {
   for (auto&& kv : m_values) {
-    auto& value = *kv.getValue();
+    auto& value = *kv.second;
     switch (value.type) {
       case Value::kChild:
         value.child->Apply();

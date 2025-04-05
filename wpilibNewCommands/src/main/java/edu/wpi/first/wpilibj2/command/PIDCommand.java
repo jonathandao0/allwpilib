@@ -7,7 +7,6 @@ package edu.wpi.first.wpilibj2.command;
 import static edu.wpi.first.util.ErrorMessages.requireNonNullParam;
 
 import edu.wpi.first.math.controller.PIDController;
-import java.util.Set;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
 
@@ -17,11 +16,21 @@ import java.util.function.DoubleSupplier;
  * are performed synchronously in the command's execute() method.
  *
  * <p>This class is provided by the NewCommands VendorDep
+ *
+ * @deprecated Use a PIDController instead
  */
-public class PIDCommand extends CommandBase {
+@Deprecated(forRemoval = true, since = "2025")
+public class PIDCommand extends Command {
+  /** PID controller. */
   protected final PIDController m_controller;
+
+  /** Measurement getter. */
   protected DoubleSupplier m_measurement;
+
+  /** Setpoint getter. */
   protected DoubleSupplier m_setpoint;
+
+  /** PID controller output consumer. */
   protected DoubleConsumer m_useOutput;
 
   /**
@@ -33,6 +42,7 @@ public class PIDCommand extends CommandBase {
    * @param useOutput the controller's output
    * @param requirements the subsystems required by this command
    */
+  @SuppressWarnings("this-escape")
   public PIDCommand(
       PIDController controller,
       DoubleSupplier measurementSource,
@@ -48,7 +58,7 @@ public class PIDCommand extends CommandBase {
     m_useOutput = useOutput;
     m_measurement = measurementSource;
     m_setpoint = setpointSource;
-    m_requirements.addAll(Set.of(requirements));
+    addRequirements(requirements);
   }
 
   /**

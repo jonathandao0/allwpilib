@@ -6,6 +6,8 @@ package edu.wpi.first.wpilibj.simulation;
 
 import edu.wpi.first.hal.simulation.NotifyCallback;
 import edu.wpi.first.hal.simulation.RoboRioDataJNI;
+import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.RobotController.RadioLEDState;
 
 /** A utility class to control a simulated RoboRIO. */
 public final class RoboRioSim {
@@ -18,8 +20,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether to run the callback with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerFPGAButtonCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -50,8 +51,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether to call the callback with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerVInVoltageCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -82,8 +82,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerVInCurrentCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -114,8 +113,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserVoltage6VCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -146,8 +144,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserCurrent6VCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -178,8 +175,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserActive6VCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -210,8 +206,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserVoltage5VCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -242,8 +237,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserCurrent5VCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -274,8 +268,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserActive5VCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -306,8 +299,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserVoltage3V3Callback(
       NotifyCallback callback, boolean initialNotify) {
@@ -338,8 +330,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserCurrent3V3Callback(
       NotifyCallback callback, boolean initialNotify) {
@@ -370,8 +361,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserActive3V3Callback(
       NotifyCallback callback, boolean initialNotify) {
@@ -402,8 +392,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserFaults6VCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -434,8 +423,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserFaults5VCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -466,8 +454,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerUserFaults3V3Callback(
       NotifyCallback callback, boolean initialNotify) {
@@ -498,8 +485,7 @@ public final class RoboRioSim {
    *
    * @param callback the callback
    * @param initialNotify whether to call the callback with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public static CallbackStore registerBrownoutVoltageCallback(
       NotifyCallback callback, boolean initialNotify) {
@@ -523,6 +509,68 @@ public final class RoboRioSim {
    */
   public static void setBrownoutVoltage(double vInVoltage) {
     RoboRioDataJNI.setBrownoutVoltage(vInVoltage);
+  }
+
+  /**
+   * Register a callback to be run whenever the cpu temp changes.
+   *
+   * @param callback the callback
+   * @param initialNotify whether to call the callback with the initial state
+   * @return the {@link CallbackStore} object associated with this callback.
+   */
+  public static CallbackStore registerCPUTempCallback(
+      NotifyCallback callback, boolean initialNotify) {
+    int uid = RoboRioDataJNI.registerCPUTempCallback(callback, initialNotify);
+    return new CallbackStore(uid, RoboRioDataJNI::cancelCPUTempCallback);
+  }
+
+  /**
+   * Get the cpu temp.
+   *
+   * @return the cpu temp.
+   */
+  public static double getCPUTemp() {
+    return RoboRioDataJNI.getCPUTemp();
+  }
+
+  /**
+   * Set the cpu temp.
+   *
+   * @param cpuTemp the new cpu temp.
+   */
+  public static void setCPUTemp(double cpuTemp) {
+    RoboRioDataJNI.setCPUTemp(cpuTemp);
+  }
+
+  /**
+   * Register a callback to be run whenever the team number changes.
+   *
+   * @param callback the callback
+   * @param initialNotify whether to call the callback with the initial state
+   * @return the {@link CallbackStore} object associated with this callback.
+   */
+  public static CallbackStore registerTeamNumberCallback(
+      NotifyCallback callback, boolean initialNotify) {
+    int uid = RoboRioDataJNI.registerTeamNumberCallback(callback, initialNotify);
+    return new CallbackStore(uid, RoboRioDataJNI::cancelTeamNumberCallback);
+  }
+
+  /**
+   * Get the team number.
+   *
+   * @return the team number.
+   */
+  public static int getTeamNumber() {
+    return RoboRioDataJNI.getTeamNumber();
+  }
+
+  /**
+   * Set the team number.
+   *
+   * @param teamNumber the new team number.
+   */
+  public static void setTeamNumber(int teamNumber) {
+    RoboRioDataJNI.setTeamNumber(teamNumber);
   }
 
   /**
@@ -559,6 +607,37 @@ public final class RoboRioSim {
    */
   public static void setComments(String comments) {
     RoboRioDataJNI.setComments(comments);
+  }
+
+  /**
+   * Register a callback to be run whenever the Radio led state changes.
+   *
+   * @param callback the callback
+   * @param initialNotify whether to call the callback with the initial state
+   * @return the {@link CallbackStore} object associated with this callback.
+   */
+  public static CallbackStore registerRadioLEDStateCallback(
+      NotifyCallback callback, boolean initialNotify) {
+    int uid = RoboRioDataJNI.registerRadioLEDStateCallback(callback, initialNotify);
+    return new CallbackStore(uid, RoboRioDataJNI::cancelRadioLEDStateCallback);
+  }
+
+  /**
+   * Get the state of the radio led.
+   *
+   * @return The state of the radio led.
+   */
+  public static RadioLEDState getRadioLEDState() {
+    return RadioLEDState.fromValue(RoboRioDataJNI.getRadioLEDState());
+  }
+
+  /**
+   * Set the state of the radio led.
+   *
+   * @param state The state of the radio led.
+   */
+  public static void setRadioLEDState(RobotController.RadioLEDState state) {
+    RoboRioDataJNI.setRadioLEDState(state.value);
   }
 
   /** Reset all simulation data. */

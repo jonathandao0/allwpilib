@@ -5,10 +5,6 @@
 #ifndef WPIUTIL_WPI_DEPRECATED_H_
 #define WPIUTIL_WPI_DEPRECATED_H_
 
-#ifndef WPI_DEPRECATED
-#define WPI_DEPRECATED(msg) [[deprecated(msg)]]
-#endif
-
 #ifndef WPI_IGNORE_DEPRECATED
 #ifdef __GNUC__
 #define WPI_IGNORE_DEPRECATED    \
@@ -16,6 +12,8 @@
       _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
 #elif defined(_WIN32)
 #define WPI_IGNORE_DEPRECATED _Pragma("warning(disable : 4996)")
+#else
+#define WPI_IGNORE_DEPRECATED
 #endif
 
 #endif
@@ -25,6 +23,8 @@
 #define WPI_UNIGNORE_DEPRECATED _Pragma("GCC diagnostic pop")
 #elif defined(_WIN32)
 #define WPI_UNIGNORE_DEPRECATED _Pragma("warning(default : 4996)")
+#else
+#define WPI_UNIGNORE_DEPRECATED
 #endif
 #endif
 

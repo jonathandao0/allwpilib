@@ -29,7 +29,7 @@ inline void NamedLog(UsbCameraImplObjc* objc, unsigned int level,
 
 #define OBJCLOG(level, format, ...)         \
   NamedLog(self, level, __FILE__, __LINE__, \
-           FMT_STRING(format) __VA_OPT__(, ) __VA_ARGS__)
+           format __VA_OPT__(, ) __VA_ARGS__)
 
 #define OBJCERROR(format, ...) \
   OBJCLOG(::wpi::WPI_LOG_ERROR, format __VA_OPT__(, ) __VA_ARGS__)
@@ -79,7 +79,7 @@ using namespace cs;
     default:
       OBJCERROR(
           "Camera access explicitly blocked for application. No cameras are "
-          "accessable");
+          "accessible");
       self.isAuthorized = false;
       // TODO log
       break;
@@ -328,8 +328,6 @@ static cs::VideoMode::PixelFormat FourCCToPixelFormat(FourCharCode fourcc) {
   @autoreleasepool {
     NSArray<AVCaptureDeviceFormat*>* formats = self.videoDevice.formats;
 
-    int count = 0;
-
     for (AVCaptureDeviceFormat* format in formats) {
       CMFormatDescriptionRef cmformat = format.formatDescription;
       CMVideoDimensions s1 = CMVideoFormatDescriptionGetDimensions(cmformat);
@@ -363,7 +361,6 @@ static cs::VideoMode::PixelFormat FourCCToPixelFormat(FourCharCode fourcc) {
 
       modes.emplace_back(store.mode);
       platformModes.emplace_back(store);
-      count++;
     }
   }
 
@@ -524,7 +521,7 @@ static cs::VideoMode::PixelFormat FourCCToPixelFormat(FourCharCode fourcc) {
   if (!self.isAuthorized) {
     OBJCERROR(
         "Camera access not authorized for application. No cameras are "
-        "accessable");
+        "accessible");
     return false;
   }
 
@@ -557,7 +554,7 @@ static cs::VideoMode::PixelFormat FourCCToPixelFormat(FourCharCode fourcc) {
   }
 
   std::string pathStr = [self.path UTF8String];
-  OBJCINFO("Connecting to USB camera on {}", pathStr);
+  OBJCINFO("Attempting to connect to USB camera on {}", pathStr);
 
   self.videoDevice = [AVCaptureDevice deviceWithUniqueID:self.path];
   if (self.videoDevice == nil) {
@@ -596,6 +593,8 @@ static cs::VideoMode::PixelFormat FourCCToPixelFormat(FourCharCode fourcc) {
     OBJCWARNING("Creating AVCaptureSession failed");
     goto err;
   }
+
+  OBJCINFO("Connected to USB camera on {}", pathStr);
 
   [[NSNotificationCenter defaultCenter]
       addObserver:self

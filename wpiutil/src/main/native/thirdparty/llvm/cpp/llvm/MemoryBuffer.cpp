@@ -230,6 +230,7 @@ static std::unique_ptr<WritableMemoryBuffer> GetMemoryBufferForStream(
     fs::file_t f, std::string_view bufferName, std::error_code& ec) {
   constexpr size_t ChunkSize = 4096 * 4;
   SmallVector<uint8_t, ChunkSize> buffer;
+  uint64_t size = 0;
 #ifdef _WIN32
   DWORD readBytes;
 #else
@@ -237,28 +238,35 @@ static std::unique_ptr<WritableMemoryBuffer> GetMemoryBufferForStream(
 #endif
   // Read into Buffer until we hit EOF.
   do {
-    buffer.resize_for_overwrite(buffer.size() + ChunkSize);
+    buffer.resize_for_overwrite(size + ChunkSize);
 #ifdef _WIN32
-    if (!ReadFile(f, buffer.end(), ChunkSize, &readBytes, nullptr)) {
+    if (!ReadFile(f, buffer.begin() + size, ChunkSize, &readBytes, nullptr)) {
       ec = mapWindowsError(GetLastError());
       return nullptr;
     }
 #else
-    readBytes = sys::RetryAfterSignal(-1, ::read, f, buffer.end(), ChunkSize);
+    readBytes = sys::RetryAfterSignal(-1, ::read, f, buffer.begin() + size,
+                                      ChunkSize);
     if (readBytes == -1) {
       ec = std::error_code(errno, std::generic_category());
       return nullptr;
     }
 #endif
+    size += readBytes;
   } while (readBytes != 0);
+  buffer.truncate(size);
 
   return GetMemBufferCopyImpl(buffer, bufferName, ec);
 }
 
-std::unique_ptr<MemoryBuffer> MemoryBuffer::GetFile(std::string_view filename,
-                                                    std::error_code& ec,
-                                                    int64_t fileSize) {
-  return GetFileAux<MemoryBuffer>(filename, ec, fileSize, fileSize, 0);
+wpi::expected<std::unique_ptr<MemoryBuffer>, std::error_code>
+MemoryBuffer::GetFile(std::string_view filename, int64_t fileSize) {
+  std::error_code ec;
+  auto ret = GetFileAux<MemoryBuffer>(filename, ec, fileSize, fileSize, 0);
+  if (ec) {
+    return wpi::unexpected{ec};
+  }
+  return ret;
 }
 
 template <typename MB>
@@ -367,7 +375,7 @@ static std::unique_ptr<WriteThroughMemoryBuffer> GetReadWriteFile(
 
       // If this not a file or a block device (e.g. it's a named pipe
       // or character device), we can't mmap it, so error out.
-      if (status.st_mode != S_IFREG && status.st_mode != S_IFBLK) {
+      if (!S_ISREG(status.st_mode) && !S_ISBLK(status.st_mode)) {
         ec = make_error_code(errc::invalid_argument);
         return nullptr;
       }
@@ -430,7 +438,7 @@ static std::unique_ptr<MB> GetOpenFileImpl(fs::file_t f,
       // If this not a file or a block device (e.g. it's a named pipe
       // or character device), we can't trust the size. Create the memory
       // buffer by copying off the stream.
-      if (status.st_mode != S_IFREG && status.st_mode != S_IFBLK) {
+      if (!S_ISREG(status.st_mode) && !S_ISBLK(status.st_mode)) {
         return GetMemoryBufferForStream(f, filename, ec);
       }
 

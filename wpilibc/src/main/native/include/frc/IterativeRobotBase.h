@@ -23,6 +23,9 @@ namespace frc {
  *
  * RobotInit() -- provide for initialization at robot power-on
  *
+ * DriverStationConnected() -- provide for initialization the first time the DS
+ * is connected
+ *
  * Init() functions -- each of the following functions is called once when the
  * appropriate mode is entered:
  *
@@ -60,12 +63,18 @@ class IterativeRobotBase : public RobotBase {
    * which will be called when the robot is first powered on. It will be called
    * exactly one time.
    *
-   * Warning: the Driver Station "Robot Code" light and FMS "Robot Ready"
-   * indicators will be off until RobotInit() exits. Code in RobotInit() that
-   * waits for enable will cause the robot to never indicate that the code is
-   * ready, causing the robot to be bypassed in a match.
+   * Note: This method is functionally identical to the class constructor so
+   * that should be used instead.
    */
   virtual void RobotInit();
+
+  /**
+   * Code that needs to know the DS state should go here.
+   *
+   * Users should override this method for initialization that needs to occur
+   * after the DS is connected, such as needing the alliance information.
+   */
+  virtual void DriverStationConnected();
 
   /**
    * Robot-wide simulation initialization code should go here.
@@ -198,13 +207,15 @@ class IterativeRobotBase : public RobotBase {
    * By default, this is enabled.
    *
    * @param enabled True to enable, false to disable
+   * @deprecated Deprecated without replacement.
    */
+  [[deprecated("Deprecated without replacement.")]]
   void SetNetworkTablesFlushEnabled(bool enabled);
 
   /**
    * Sets whether LiveWindow operation is enabled during test mode.
    *
-   * @param testLW True to enable, false to disable. Defaults to true.
+   * @param testLW True to enable, false to disable. Defaults to false.
    * @throws if called in test mode.
    */
   void EnableLiveWindowInTest(bool testLW);
@@ -220,6 +231,11 @@ class IterativeRobotBase : public RobotBase {
   units::second_t GetPeriod() const;
 
   /**
+   * Prints list of epochs added so far and their times.
+   */
+  void PrintWatchdogEpochs();
+
+  /**
    * Constructor for IterativeRobotBase.
    *
    * @param period Period.
@@ -232,6 +248,9 @@ class IterativeRobotBase : public RobotBase {
   IterativeRobotBase(IterativeRobotBase&&) = default;
   IterativeRobotBase& operator=(IterativeRobotBase&&) = default;
 
+  /**
+   * Loop function.
+   */
   void LoopFunc();
 
  private:
@@ -241,7 +260,8 @@ class IterativeRobotBase : public RobotBase {
   units::second_t m_period;
   Watchdog m_watchdog;
   bool m_ntFlushEnabled = true;
-  bool m_lwEnabledInTest = true;
+  bool m_lwEnabledInTest = false;
+  bool m_calledDsConnected = false;
 
   void PrintLoopOverrunMessage();
 };

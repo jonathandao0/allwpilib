@@ -6,12 +6,18 @@ package edu.wpi.first.wpilibj;
 
 import edu.wpi.first.hal.REVPHJNI;
 
+/** Compressor config type. */
 public enum CompressorConfigType {
+  /** Disabled. */
   Disabled(REVPHJNI.COMPRESSOR_CONFIG_TYPE_DISABLED),
+  /** Digital. */
   Digital(REVPHJNI.COMPRESSOR_CONFIG_TYPE_DIGITAL),
+  /** Analog. */
   Analog(REVPHJNI.COMPRESSOR_CONFIG_TYPE_ANALOG),
+  /** Hybrid. */
   Hybrid(REVPHJNI.COMPRESSOR_CONFIG_TYPE_HYBRID);
 
+  /** CompressorConfigType value. */
   public final int value;
 
   CompressorConfigType(int value) {
@@ -25,18 +31,19 @@ public enum CompressorConfigType {
    * @return type
    */
   public static CompressorConfigType fromValue(int value) {
-    switch (value) {
-      case REVPHJNI.COMPRESSOR_CONFIG_TYPE_HYBRID:
-        return Hybrid;
-      case REVPHJNI.COMPRESSOR_CONFIG_TYPE_ANALOG:
-        return Analog;
-      case REVPHJNI.COMPRESSOR_CONFIG_TYPE_DIGITAL:
-        return Digital;
-      default:
-        return Disabled;
-    }
+    return switch (value) {
+      case REVPHJNI.COMPRESSOR_CONFIG_TYPE_HYBRID -> Hybrid;
+      case REVPHJNI.COMPRESSOR_CONFIG_TYPE_ANALOG -> Analog;
+      case REVPHJNI.COMPRESSOR_CONFIG_TYPE_DIGITAL -> Digital;
+      default -> Disabled;
+    };
   }
 
+  /**
+   * Returns the CompressorConfigType's value.
+   *
+   * @return The CompressorConfigType's value.
+   */
   public int getValue() {
     return value;
   }

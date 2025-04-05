@@ -10,6 +10,7 @@ import edu.wpi.first.wpilibj.PneumaticsModuleType;
 
 /** Common base class for pneumatics module simulation classes. */
 public abstract class PneumaticsBaseSim {
+  /** PneumaticsBase index. */
   protected final int m_index;
 
   /**
@@ -20,20 +21,26 @@ public abstract class PneumaticsBaseSim {
    * @return the module object.
    */
   public static PneumaticsBaseSim getForType(int module, PneumaticsModuleType type) {
-    switch (type) {
-      case CTREPCM:
-        return new CTREPCMSim(module);
-      case REVPH:
-        return new REVPHSim(module);
-      default:
-        throw new IllegalArgumentException("Unknown module type");
-    }
+    return switch (type) {
+      case CTREPCM -> new CTREPCMSim(module);
+      case REVPH -> new REVPHSim(module);
+    };
   }
 
+  /**
+   * Constructs a PneumaticsBaseSim with the given index.
+   *
+   * @param index The index.
+   */
   protected PneumaticsBaseSim(int index) {
     m_index = index;
   }
 
+  /**
+   * Constructs a PneumaticsBaseSim for the given module.
+   *
+   * @param module The module.
+   */
   protected PneumaticsBaseSim(PneumaticsBase module) {
     this(module.getModuleNumber());
   }
@@ -57,8 +64,7 @@ public abstract class PneumaticsBaseSim {
    *
    * @param callback the callback
    * @param initialNotify whether to run the callback with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public abstract CallbackStore registerInitializedCallback(
       NotifyCallback callback, boolean initialNotify);
@@ -82,8 +88,7 @@ public abstract class PneumaticsBaseSim {
    *
    * @param callback the callback
    * @param initialNotify whether to run the callback with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public abstract CallbackStore registerCompressorOnCallback(
       NotifyCallback callback, boolean initialNotify);
@@ -110,8 +115,7 @@ public abstract class PneumaticsBaseSim {
    * @param channel the channel to monitor
    * @param callback the callback
    * @param initialNotify should the callback be run with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public abstract CallbackStore registerSolenoidOutputCallback(
       int channel, NotifyCallback callback, boolean initialNotify);
@@ -135,8 +139,7 @@ public abstract class PneumaticsBaseSim {
    *
    * @param callback the callback
    * @param initialNotify whether the callback should be called with the initial value
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public abstract CallbackStore registerPressureSwitchCallback(
       NotifyCallback callback, boolean initialNotify);
@@ -160,8 +163,7 @@ public abstract class PneumaticsBaseSim {
    *
    * @param callback the callback
    * @param initialNotify whether to call the callback with the initial state
-   * @return the {@link CallbackStore} object associated with this callback. Save a reference to
-   *     this object so GC doesn't cancel the callback.
+   * @return the {@link CallbackStore} object associated with this callback.
    */
   public abstract CallbackStore registerCompressorCurrentCallback(
       NotifyCallback callback, boolean initialNotify);

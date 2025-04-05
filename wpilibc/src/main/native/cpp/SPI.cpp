@@ -165,9 +165,7 @@ SPI::SPI(Port port) : m_port(static_cast<HAL_SPIPort>(port)) {
              static_cast<uint8_t>(port) + 1);
 }
 
-SPI::~SPI() {
-  HAL_CloseSPI(m_port);
-}
+SPI::~SPI() = default;
 
 SPI::Port SPI::GetPort() const {
   return static_cast<Port>(static_cast<int>(m_port));
@@ -175,44 +173,6 @@ SPI::Port SPI::GetPort() const {
 
 void SPI::SetClockRate(int hz) {
   HAL_SetSPISpeed(m_port, hz);
-}
-
-void SPI::SetMSBFirst() {
-  FRC_ReportError(1, "SetMSBFirst not supported by roboRIO {}",
-                  static_cast<int>(m_port));
-}
-
-void SPI::SetLSBFirst() {
-  FRC_ReportError(1, "SetLSBFirst not supported by roboRIO {}",
-                  static_cast<int>(m_port));
-}
-
-void SPI::SetSampleDataOnLeadingEdge() {
-  int mode = m_mode;
-  mode &= 2;
-  m_mode = static_cast<HAL_SPIMode>(mode);
-  HAL_SetSPIMode(m_port, m_mode);
-}
-
-void SPI::SetSampleDataOnTrailingEdge() {
-  int mode = m_mode;
-  mode |= 2;
-  m_mode = static_cast<HAL_SPIMode>(mode);
-  HAL_SetSPIMode(m_port, m_mode);
-}
-
-void SPI::SetClockActiveLow() {
-  int mode = m_mode;
-  mode |= 1;
-  m_mode = static_cast<HAL_SPIMode>(mode);
-  HAL_SetSPIMode(m_port, m_mode);
-}
-
-void SPI::SetClockActiveHigh() {
-  int mode = m_mode;
-  mode &= 1;
-  m_mode = static_cast<HAL_SPIMode>(mode);
-  HAL_SetSPIMode(m_port, m_mode);
 }
 
 void SPI::SetMode(Mode mode) {

@@ -4,12 +4,13 @@
 
 #include <chrono>
 #include <thread>
+#include <vector>
 
+#include <gtest/gtest.h>
 #include <wpi/Synchronization.h>
 #include <wpi/mutex.h>
 
 #include "TestPrinters.h"
-#include "gtest/gtest.h"
 #include "ntcore_cpp.h"
 
 class ConnectionListenerTest : public ::testing::Test {
